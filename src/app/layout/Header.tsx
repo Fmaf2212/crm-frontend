@@ -1,4 +1,4 @@
-import { Menu } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -6,9 +6,16 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick, title }: HeaderProps) {
+  const handleLogout = () => {
+    localStorage.removeItem("sn_user");
+    localStorage.removeItem("sn_isLogged");
+    window.location.href = "/login";
+  };
+  const isLogged = localStorage.getItem("sn_isLogged") === "true";
+
   return (
     <header className="w-full h-14 bg-[#F8F9FA] border-b border-[var(--border)] flex items-center justify-between px-6">
-      
+
       {/* IZQUIERDA */}
       <div className="flex items-center space-x-3">
         <button
@@ -22,7 +29,17 @@ export function Header({ onMenuClick, title }: HeaderProps) {
       </div>
 
       {/* DERECHA */}
-      <div></div>
+      <div>
+        {isLogged && (
+          <button
+            onClick={handleLogout}
+            className="text-red-600 flex items-center gap-2 hover:opacity-80"
+          >
+            <LogOut className="w-5 h-5" /> Salir
+          </button>
+        )}
+      </div>
+
     </header>
   );
 }

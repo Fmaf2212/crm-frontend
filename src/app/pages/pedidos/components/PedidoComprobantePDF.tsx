@@ -5,15 +5,14 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
-import type { Pedido } from "../SeguimientoPedido";
 
 // ================ PDF: COMPROBANTE DE PEDIDO =================
 
 type PedidoComprobanteProps = {
-  pedido: Pedido;
+  data: any; // Recibe TODO el detalle real del backend
 };
 
-const comprobanteStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   page: {
     paddingTop: 32,
     paddingBottom: 40,
@@ -37,35 +36,11 @@ const comprobanteStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  logoText: {
-    fontSize: 9,
-    color: "#10B981",
-  },
-  headerTitleBlock: {
-    flex: 1,
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: "#059669",
-  },
-  headerSub: {
-    marginTop: 4,
-    fontSize: 9,
-    color: "#6B7280",
-  },
-  headerRight: {
-    alignItems: "flex-end",
-  },
-  headerCode: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: "#111827",
-  },
-  section: {
-    marginTop: 14,
-  },
+  logoText: { fontSize: 9, color: "#10B981" },
+  headerTitle: { fontSize: 14, fontWeight: 700, color: "#059669" },
+  headerSub: { marginTop: 4, fontSize: 9, color: "#6B7280"},
+
+  section: { marginTop: 14 },
   sectionTitle: {
     fontSize: 11,
     fontWeight: 700,
@@ -73,35 +48,19 @@ const comprobanteStyles = StyleSheet.create({
     marginBottom: 6,
     textTransform: "uppercase",
   },
+
   card: {
     borderTopColor: "#E5E7EB",
     borderTopWidth: 1,
-    borderTopStyle: 'solid',
+    borderTopStyle: "solid",
     paddingTop: 8,
   },
-  row: {
-    flexDirection: "row",
-  },
-  rowBlockInput: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  col: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 9,
-    color: "#6B7280",
-    marginTop: 4,
-  },
-  value: {
-    marginLeft: 5,
-    fontSize: 10,
-    color: "#111827",
-    marginTop: 1,
-    lineHeight: .8,
-  },
+  row: { flexDirection: "row" },
+  col: { flex: 1 },
+  rowBlockInput: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  label: { fontSize: 9, color: "#6B7280", marginTop: 4 },
+  value: { marginLeft: 5, fontSize: 10, color: "#111827", marginTop: 1 },
+
   table: {
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -114,24 +73,19 @@ const comprobanteStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
-  th: {
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-    fontSize: 9,
-    fontWeight: 700,
-    color: "#374151",
-  },
-  td: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    fontSize: 9,
-    color: "#111827",
-  },
+  th: { paddingVertical: 6, paddingHorizontal: 6, fontSize: 9, fontWeight: 700 },
+  td: { paddingVertical: 4, paddingHorizontal: 6, fontSize: 9 },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
+
+  infoExtraRow: {
+    flexDirection: "row",
+    marginTop: 6,
+  },
+
   resumenCard: {
     borderWidth: 1,
     backgroundColor: "#F9FAFB",
@@ -142,84 +96,36 @@ const comprobanteStyles = StyleSheet.create({
     alignSelf: "flex-end",
     marginTop: 8,
   },
-  resumenRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 6,
-  },
-  resumenRowTotalAPagar: {
+  resumenRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
+  resumenTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 6,
     borderTopColor: "#E5E7EB",
     borderTopWidth: 1,
-    borderTopStyle: 'solid',
     paddingTop: 4,
   },
-  resumenLabel: {
-    fontSize: 9,
-    color: "#6B7280",
+  resumenLabel: { fontSize: 9, color: "#6B7280" },
+  resumenValue: { fontSize: 9, color: "#111827" },
+  resumenTotalLabel: { fontSize: 10, fontWeight: 700 },
+  resumenTotalValue: { fontSize: 11, fontWeight: 700, color: "#059669" },
+
+  footer: {
+    marginTop: 20,
+    textAlign: "center",
+    borderTopColor: "#E5E7EB",
+    borderTopWidth: 1,
+    paddingTop: 12,
   },
-  resumenValue: {
-    fontSize: 9,
-    color: "#111827",
-  },
-  resumenTotalLabel: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: "#111827",
-    marginTop: 4,
-  },
-  resumenTotalValue: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: "#059669",
-    marginTop: 4,
-  },
-  infoExtraRow: {
-    flexDirection: "row",
-    marginTop: 6,
-  },
+
   badge: {
     fontSize: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 999,
   },
-  badgePedido: {
-    backgroundColor: "#DBEAFE",
-    borderColor: "none",
-    color: "#1D4ED8",
-  },
-  badgePago: {
-    backgroundColor: "#DCFCE7",
-    borderColor: "none",
-    color: "#059669",
-  },
-  badgeFacturacion: {
-    backgroundColor: "#DCFCE7",
-    borderColor: "none",
-    color: "#059669",
-  },
-  specialBox: {
-    marginTop: 3,
-    borderWidth: 1,
-    backgroundColor: "#F9FAFB",
-    borderColor: "#E5E7EB",
-    borderRadius: 6,
-    padding: 8,
-  },
-  footer: {
-    marginTop: 20,
-    textAlign: "center",
-    borderTopColor: "#E5E7EB",
-    borderTopWidth: 1,
-    borderTopStyle: 'solid',
-    paddingTop: 12,
-  },
 });
 
-// Mapea color de fondo y texto según estado del pedido
 const getPedidoBadgeStyle = (estado: string) => {
   switch (estado) {
     case "Ingresada":
@@ -246,7 +152,6 @@ const getPedidoBadgeStyle = (estado: string) => {
   }
 };
 
-// Mapea estado de pago
 const getPagoBadgeStyle = (estado: string) => {
   switch (estado) {
     case "Pendiente":
@@ -260,7 +165,6 @@ const getPagoBadgeStyle = (estado: string) => {
   }
 };
 
-// Mapea estado de facturación
 const getFacturacionBadgeStyle = (estado: string) => {
   switch (estado) {
     case "Pendiente":
@@ -275,341 +179,331 @@ const getFacturacionBadgeStyle = (estado: string) => {
   }
 };
 
-const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ pedido }) => {
-  // mock de productos (por ahora fijo como el modal)
-  const productos = [
-    {
-      nombre: "Suplemento Multivitamínico Natural",
-      codigo: "SUP-001",
-      cantidad: 2,
-      precio: 85,
-      descuento: 5,
-      subtotal: 151.5,
-    },
-    {
-      nombre: "Té Verde Detox Premium",
-      codigo: "TEA-002",
-      cantidad: 2,
-      precio: 35,
-      descuento: 7,
-      subtotal: 63,
-    },
-    {
-      nombre: "Aceite de Coco Orgánico",
-      codigo: "CCT-003",
-      cantidad: 1,
-      precio: 28,
-      descuento: 2,
-      subtotal: 25.2,
-    },
-  ];
 
-  const subtotal = productos.reduce((a, p) => a + p.subtotal, 0);
-  const descuentoTotal = 18.3; // mock según imagen
-  const costoEnvio = 12;
-  const totalPagar = subtotal - descuentoTotal + costoEnvio;
+const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
+  const cliente = data?.detalleClientePorPedido ?? {};
+  const lead = data?.detalleLeadPorPedido ?? {};
+  const delivery = data?.detalleDeliveryPorPedido ?? {};
+  const producto = data?.detallePedido ?? {};
+
+  const subtotal = Number(data.monto_Total_Regular ?? 0);
+  const descuento = subtotal - Number(data.monto_Total_Promocional ?? 0);
+  const costoEnvio = Number(data.precioDelivery ?? 0);
+  const total = Number(data.monto_Total_Promocional ?? 0) + costoEnvio;
 
   return (
     <Document>
-      <Page size="A4" style={comprobanteStyles.page}>
-        <View style={comprobanteStyles.headerRow}>
-          <View style={comprobanteStyles.logoBox}>
-            <Text style={comprobanteStyles.logoText}>LOGO</Text>
+      <Page size="A4" style={styles.page}>
+
+        {/* ======================= HEADER ======================= */}
+        <View style={styles.headerRow}>
+          <View style={styles.logoBox}>
+            <Text style={styles.logoText}>LOGO</Text>
           </View>
-          <View style={comprobanteStyles.headerRight}>
-            <Text style={comprobanteStyles.headerTitle}>
-              COMPROBANTE DE PEDIDO
-            </Text>
-            <Text style={comprobanteStyles.headerSub}>
-              Nº ORD-2025-00125
-            </Text>
-            <Text style={comprobanteStyles.headerSub}>
-              {pedido.fechaIngreso}
-            </Text>
+
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={styles.headerTitle}>COMPROBANTE DE PEDIDO</Text>
+            <Text style={styles.headerSub}>{data.id_Pedido ?? ""}</Text>
+            <Text style={styles.headerSub}>{data.fecha_Registro_Pedido}</Text>
           </View>
         </View>
 
-        <View style={comprobanteStyles.section}>
-          <Text style={comprobanteStyles.sectionTitle}>
-            INFORMACIÓN DEL CLIENTE
-          </Text>
-          <View style={comprobanteStyles.card}>
-            <View style={comprobanteStyles.row}>
-              <View style={comprobanteStyles.col}>
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={comprobanteStyles.label}>Nombre:</Text>
-                  <Text style={comprobanteStyles.value}>{pedido.cliente}</Text>
+        {/* ======================= CLIENTE ======================= */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>INFORMACIÓN DEL CLIENTE</Text>
+
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.col}>
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Nombre:</Text>
+                  <Text style={styles.value}>{cliente?.cliente}</Text>
                 </View>
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={comprobanteStyles.label}>Documento:</Text>
-                  <Text style={comprobanteStyles.value}>DNI 12345678</Text>
-                </View>
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={comprobanteStyles.label}>Teléfono:</Text>
-                  <Text style={comprobanteStyles.value}>
-                    +51 {pedido.telefono}
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Documento:</Text>
+                  <Text style={styles.value}>
+                    {cliente?.tipo_Documento} {cliente?.numero_Documento}
                   </Text>
+                </View>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Teléfono:</Text>
+                  <Text style={styles.value}>{lead?.numero_De_Contacto}</Text>
                 </View>
               </View>
 
-              <View style={[comprobanteStyles.col, { paddingLeft: 12 }]}>
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={comprobanteStyles.label}>Dirección:</Text>
-                  <Text style={[comprobanteStyles.value, { maxWidth: 180}]}>
-                    Av. Primavera 123 – Santiago de Surco – Lima
+              <View style={[styles.col, { paddingLeft: 12 }]}>
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Tipo de entrega:</Text>
+                  <Text style={styles.value}>
+                    {delivery?.tipo_de_Entrega ?? "No registrado"}
                   </Text>
                 </View>
 
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={comprobanteStyles.label}>Medio de envío:</Text>
-                  <Text style={comprobanteStyles.value}>Shalom</Text>
-                </View>
-
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={comprobanteStyles.label}>Fecha de entrega:</Text>
-                  <Text style={comprobanteStyles.value}>
-                    {pedido.fechaPactada}
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Dirección:</Text>
+                  <Text style={[styles.value, { maxWidth: 180 }]}>
+                    {delivery?.direccion_Delivery ?? "Sin dirección registrada"}
                   </Text>
                 </View>
 
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={comprobanteStyles.label}>Horario:</Text>
-                  <Text style={comprobanteStyles.value}>Entre 9:00 y 13:00 h</Text>
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Provincia:</Text>
+                  <Text style={styles.value}>
+                    {delivery?.provincia ?? "No registrado"}
+                  </Text>
+                </View>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Distrito:</Text>
+                  <Text style={styles.value}>
+                    {delivery?.distrito ?? "No registrado"}
+                  </Text>
+                </View>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Medio de envío:</Text>
+                  <Text style={styles.value}>
+                    {delivery?.medio_de_Envio ?? "Sin información"}
+                  </Text>
+                </View>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Fecha pactada:</Text>
+                  <Text style={styles.value}>
+                    {delivery?.fecha_Pactada_Delivery ?? "—"}
+                  </Text>
+                </View>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Horario pactado:</Text>
+                  <Text style={styles.value}>
+                    {delivery?.horario_Pactado ?? "—"}
+                  </Text>
                 </View>
               </View>
             </View>
           </View>
         </View>
 
+        {/* ======================= PRODUCTOS ======================= */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>PRODUCTOS DEL PEDIDO</Text>
 
-        <View style={comprobanteStyles.section}>
-          <Text style={comprobanteStyles.sectionTitle}>
-            INFORMACIÓN DEL PEDIDO
-          </Text>
+          <View style={styles.card}>
+            <View style={styles.table}>
 
-          <View style={comprobanteStyles.card}>
-            <View style={comprobanteStyles.table}>
-
-              <View style={comprobanteStyles.tableHeader}>
-                <View style={{ flex: 3 }}>
-                  <Text style={comprobanteStyles.th}>Producto</Text>
+              {/* HEADER */}
+              <View style={styles.tableHeader}>
+                <View style={{ flex: 2.5 }}>
+                  <Text style={styles.th}>Producto</Text>
+                </View>
+                <View style={{ flex: 1.2 }}>
+                  <Text style={[styles.th, { textAlign: "right" }]}>
+                    Precio Base
+                  </Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[comprobanteStyles.th, { textAlign: "center" }]}>
-                    Cantidad
-                  </Text>
-                </View>
-                <View style={{ flex: 1.2 }}>
-                  <Text style={[comprobanteStyles.th, { textAlign: "right" }]}>
-                    Precio Unit.
-                  </Text>
-                </View>
-                <View style={{ flex: 1.2 }}>
-                  <Text style={[comprobanteStyles.th, { textAlign: "right" }]}>
+                  <Text style={[styles.th, { textAlign: "center" }]}>
                     Descuento
                   </Text>
                 </View>
                 <View style={{ flex: 1.2 }}>
-                  <Text style={[comprobanteStyles.th, { textAlign: "right" }]}>
+                  <Text style={[styles.th, { textAlign: "right" }]}>
+                    Precio con Desc.
+                  </Text>
+                </View>
+                <View style={{ flex: 0.8 }}>
+                  <Text style={[styles.th, { textAlign: "center" }]}>
+                    Cant.
+                  </Text>
+                </View>
+                <View style={{ flex: 1.2 }}>
+                  <Text style={[styles.th, { textAlign: "right" }]}>
                     Subtotal
                   </Text>
                 </View>
               </View>
 
+              {/* FILAS DE PRODUCTOS - ITERACIÓN DEL ARRAY */}
+              {data?.detallePedido && Array.isArray(data.detallePedido) && data.detallePedido.length > 0 ? (
+                data.detallePedido.map((producto: any, index: number) => (
+                  <View key={index} style={styles.tableRow}>
+                    <View style={{ flex: 2.5 }}>
+                      <Text style={styles.td}>{producto.nombre_Producto}</Text>
+                    </View>
 
-              {productos.map((p, idx) => (
-                <View key={idx} style={comprobanteStyles.tableRow}>
-                  <View style={{ flex: 3 }}>
-                    <Text style={comprobanteStyles.td}>{p.nombre}</Text>
-                    <Text
-                      style={[
-                        comprobanteStyles.td,
-                        { fontSize: 8, color: "#6B7280" },
-                      ]}
-                    >
-                      COD: {p.codigo}
-                    </Text>
+                    <View style={{ flex: 1.2 }}>
+                      <Text style={[styles.td, { textAlign: "right" }]}>
+                        S/ {producto.precio_Regular?.toFixed(2) || "0.00"}
+                      </Text>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.td, { textAlign: "center", color: "#DC2626" }]}>
+                        {producto.nombre_Descuento === "Sin Descuento" ? "-" : producto.nombre_Descuento}
+                      </Text>
+                    </View>
+
+                    <View style={{ flex: 1.2 }}>
+                      <Text style={[styles.td, { textAlign: "right" }]}>
+                        S/ {producto.precio_Promocional?.toFixed(2) || "0.00"}
+                      </Text>
+                    </View>
+
+                    <View style={{ flex: 0.8 }}>
+                      <Text style={[styles.td, { textAlign: "center" }]}>
+                        {producto.cantidad}
+                      </Text>
+                    </View>
+
+                    <View style={{ flex: 1.2 }}>
+                      <Text style={[styles.td, { textAlign: "right", fontWeight: "bold" }]}>
+                        S/ {producto.subtotal_Promocional?.toFixed(2) || "0.00"}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, justifyContent: "center" }}>
-                    <Text
-                      style={[
-                        comprobanteStyles.td,
-                        { textAlign: "center", marginTop: 0 },
-                      ]}
-                    >
-                      {p.cantidad}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1.2, justifyContent: "center" }}>
-                    <Text
-                      style={[
-                        comprobanteStyles.td,
-                        { textAlign: "right", marginTop: 0 },
-                      ]}
-                    >
-                      S/ {p.precio.toFixed(2)}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1.2, justifyContent: "center" }}>
-                    <Text
-                      style={[
-                        comprobanteStyles.td,
-                        { textAlign: "right", marginTop: 0, color: "#DC2626" },
-                      ]}
-                    >
-                      - S/ {p.descuento.toFixed(2)}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1.2, justifyContent: "center" }}>
-                    <Text
-                      style={[
-                        comprobanteStyles.td,
-                        { textAlign: "right", marginTop: 0 },
-                      ]}
-                    >
-                      S/ {p.subtotal.toFixed(2)}
+                ))
+              ) : (
+                <View style={styles.tableRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.td, { textAlign: "center", color: "#6B7280" }]}>
+                      No hay productos en este pedido
                     </Text>
                   </View>
                 </View>
-              ))}
+              )}
             </View>
           </View>
 
-          <View style={comprobanteStyles.resumenCard}>
-            <View style={comprobanteStyles.resumenRow}>
-              <Text style={comprobanteStyles.resumenLabel}>Subtotal:</Text>
-              <Text style={comprobanteStyles.resumenValue}>
-                S/ {subtotal.toFixed(2)}
+          {/* ======================= RESUMEN ======================= */}
+          <View style={styles.resumenCard}>
+            <View style={styles.resumenRow}>
+              <Text style={styles.resumenLabel}>Subtotal:</Text>
+              <Text style={styles.resumenValue}>S/ {subtotal.toFixed(2)}</Text>
+            </View>
+
+            <View style={styles.resumenRow}>
+              <Text style={styles.resumenLabel}>Descuento total:</Text>
+              <Text style={[styles.resumenValue, { color: "#DC2626" }]}>
+                -S/ {descuento.toFixed(2)}
               </Text>
             </View>
-            <View style={comprobanteStyles.resumenRow}>
-              <Text style={comprobanteStyles.resumenLabel}>
-                Descuento total:
-              </Text>
-              <Text style={[comprobanteStyles.resumenValue, { color: "#DC2626" }]}>
-                - S/ {descuentoTotal.toFixed(2)}
-              </Text>
-            </View>
-            <View style={comprobanteStyles.resumenRow}>
-              <Text style={comprobanteStyles.resumenLabel}>Costo de envío:</Text>
-              <Text style={comprobanteStyles.resumenValue}>
+
+            <View style={styles.resumenRow}>
+              <Text style={styles.resumenLabel}>Costo de envío:</Text>
+              <Text style={styles.resumenValue}>
                 S/ {costoEnvio.toFixed(2)}
               </Text>
             </View>
 
-            <View style={comprobanteStyles.resumenRowTotalAPagar}>
-              <Text style={comprobanteStyles.resumenTotalLabel}>
-                TOTAL A PAGAR:
-              </Text>
-              <Text style={comprobanteStyles.resumenTotalValue}>
-                S/ {totalPagar.toFixed(2)}
-              </Text>
+            <View style={styles.resumenTotalRow}>
+              <Text style={styles.resumenTotalLabel}>TOTAL A PAGAR:</Text>
+              <Text style={styles.resumenTotalValue}>S/ {total.toFixed(2)}</Text>
             </View>
           </View>
         </View>
 
-        <View style={comprobanteStyles.section}>
-          <Text style={comprobanteStyles.sectionTitle}>
-            INFORMACIÓN ADICIONAL
-          </Text>
+        {/* ====================== INFORMACIÓN ADICIONAL ====================== */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>INFORMACIÓN ADICIONAL</Text>
 
-          <View style={comprobanteStyles.card}>
-            <View style={comprobanteStyles.infoExtraRow}>
-              <View style={comprobanteStyles.col}>
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={comprobanteStyles.label}>
-                    Asesor responsable:
-                  </Text>
-                  <Text style={comprobanteStyles.value}>{pedido.asesor}</Text>
+          <View style={styles.card}>
+
+            {/* Creamos dos columnas verticales que NO interfieren entre sí */}
+            <View style={[styles.row, { alignItems: "flex-start" }]}>
+
+              {/* COLUMNA IZQUIERDA */}
+              <View style={{ flex: 1, paddingRight: 12 }}>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Asesor responsable:</Text>
                 </View>
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={comprobanteStyles.label}>Supervisor:</Text>
-                  <Text style={comprobanteStyles.value}>Jorge Pérez</Text>
+                <Text style={[styles.value, { marginBottom: 6 }]}>
+                  {lead?.asesor ?? "No registrado"}
+                </Text>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Supervisor:</Text>
                 </View>
+                <Text style={styles.value}>
+                  {lead?.supervisor ?? "No registrado"}
+                </Text>
+
               </View>
 
-              <View style={comprobanteStyles.col}>
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={[comprobanteStyles.label, { marginTop: 1 }]}>
-                    Estado del pedido:
-                    </Text>
+              {/* COLUMNA DERECHA */}
+              <View style={{ flex: 1, paddingLeft: 12 }}>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Estado del pedido:</Text>
                   <Text
                     style={[
-                      comprobanteStyles.badge,
-                      {
-                        ...getPedidoBadgeStyle(pedido.estadoPedido),
-                        marginLeft: 4,
-                        paddingVertical: 4,
-                        paddingHorizontal: 6,
-                        lineHeight: 1,
-                      }
+                      styles.badge,
+                      getPedidoBadgeStyle(data?.estatus_Operacion ?? ""),
                     ]}
                   >
-                    {pedido.estadoPedido}
+                    {data?.estatus_Operacion ?? "—"}
                   </Text>
                 </View>
 
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={[comprobanteStyles.label, { marginTop: 1 }]}>
-                    Estado del pago:
-                  </Text>
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Estado del pago:</Text>
                   <Text
                     style={[
-                      comprobanteStyles.badge,
-                      {
-                        ...getPagoBadgeStyle(pedido.estadoPago),
-                        marginLeft: 4,
-                        paddingVertical: 4,
-                        paddingHorizontal: 6,
-                        lineHeight: 1,
-                      }
+                      styles.badge,
+                      getPagoBadgeStyle(data?.estatus_Pago ?? ""),
                     ]}
                   >
-                    {pedido.estadoPago}
+                    {data?.estatus_Pago ?? "—"}
                   </Text>
                 </View>
 
-                <View style={comprobanteStyles.rowBlockInput}>
-                  <Text style={[comprobanteStyles.label, { marginTop: 1 }]}>
-                    Estado de facturación:
-                  </Text>
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Estado de facturación:</Text>
                   <Text
                     style={[
-                      comprobanteStyles.badge,
-                      {
-                        ...getFacturacionBadgeStyle(pedido.estadoFacturacion),
-                        marginLeft: 4,
-                        paddingVertical: 4,
-                        paddingHorizontal: 6,
-                        lineHeight: 1,
-                      }
+                      styles.badge,
+                      getFacturacionBadgeStyle(data?.estatus_Facturacion ?? ""),
                     ]}
                   >
-                    {pedido.estadoFacturacion}
+                    {data?.estatus_Facturacion ?? "—"}
                   </Text>
                 </View>
+
               </View>
+
             </View>
           </View>
         </View>
 
-        <View style={comprobanteStyles.section}>
-          <Text style={comprobanteStyles.sectionTitle}>
-            INSTRUCCIONES ESPECIALES
-          </Text>
+        {/* ====================== INSTRUCCIONES ESPECIALES ====================== */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>INSTRUCCIONES ESPECIALES</Text>
 
-          <View style={comprobanteStyles.card}>
-            <View style={comprobanteStyles.specialBox}>
+          <View style={styles.card}>
+            <View
+              style={{
+                borderWidth: 1,
+                backgroundColor: "#F9FAFB",
+                borderColor: "#E5E7EB",
+                borderRadius: 6,
+                padding: 8,
+              }}
+            >
               <Text style={{ fontSize: 9, color: "#4B5563" }}>
-                Entregar preferiblemente en horario de mañana. Tocar el timbre dos
-                veces. Si no hay nadie en casa, coordinar nueva fecha de entrega
-                con el cliente.
+                {delivery?.indicaciones_De_Entrega?.trim()
+                  ? delivery.indicaciones_De_Entrega
+                  : "No hay indicaciones registradas para este pedido."}
               </Text>
             </View>
           </View>
         </View>
 
-        <View style={comprobanteStyles.footer}>
+
+        {/* ====================== FOOTER ====================== */}
+        <View style={styles.footer}>
           <Text style={{ fontSize: 12, color: "#4B5563", marginBottom: 4 }}>
             Gracias por su compra. Santa Natura – Productos naturales que cuidan tu salud.
           </Text>
@@ -632,6 +526,7 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ pedido }) => {
             Este documento es generado automáticamente por el sistema de gestión de pedidos Santa Natura.
           </Text>
         </View>
+
       </Page>
     </Document>
   );

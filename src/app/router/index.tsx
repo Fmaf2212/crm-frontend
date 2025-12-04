@@ -1,7 +1,9 @@
 import { lazy } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "../layout/AppLayout";
 import ComprobantePreview from "../pages/pedidos/preview/ComprobantePreview";
+import LoginPage from "../login/page";
+import { PrivateRoute } from "./PrivateRoute";
 
 // Lead
 const CrearLead = lazy(() => import("../pages/lead/CrearLead"));
@@ -34,22 +36,32 @@ const CrearProducto = lazy(() => import("../pages/productos/CrearProducto"));
 
 export function AppRouter() {
   return (
-      <Routes>
-        {/* Lead */}
-        <Route path="/lead/crear" element={<CrearLead />} />
-        <Route path="/lead/seguimiento" element={<SeguimientoLead />} />
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
 
-        {/* Pedidos */}
-        <Route path="/pedidos/crear" element={<CrearPedido />} />
-        <Route path="/pedidos/seguimiento" element={<SeguimientoPedido />} />
-        <Route path="/pedidos/preview" element={<ComprobantePreview />} />
-        <Route path="/pedidos/validaciones" element={<ValidacionesPedido />} />
+      {/* Redirige la ruta raíz a /lead/crear */}
+      <Route path="/" element={<Navigate to="/lead/crear" replace />} />
 
-        {/* Productos */}
-        <Route path="/productos/crear" element={<CrearProducto />} />
+      {/* Lead */}
+      <Route path="/lead/crear" element={
+        <PrivateRoute>
+          <CrearLead />
+        </PrivateRoute>} />
+      <Route path="/lead/seguimiento" element={
+        <PrivateRoute><SeguimientoLead /></PrivateRoute>} />
 
-        {/* Sistema */}
-        {/* <Route path="/sistema/usuarios" element={<Usuarios />} />
+      {/* Pedidos */}
+      <Route path="/pedidos/crear" element={
+        <PrivateRoute><CrearPedido /></PrivateRoute>} />
+      <Route path="/pedidos/seguimiento" element={<PrivateRoute><SeguimientoPedido /></PrivateRoute>} />
+      <Route path="/pedidos/preview" element={<PrivateRoute><ComprobantePreview /></PrivateRoute>} />
+      <Route path="/pedidos/validaciones" element={<PrivateRoute><ValidacionesPedido /></PrivateRoute>} />
+
+      {/* Productos */}
+      <Route path="/productos/crear" element={<PrivateRoute><CrearProducto /></PrivateRoute>} />
+
+      {/* Sistema */}
+      {/* <Route path="/sistema/usuarios" element={<Usuarios />} />
         <Route path="/sistema/asignar-roles" element={<AsignarRoles />} />
         <Route path="/sistema/roles" element={<Roles />} />
         <Route path="/sistema/tipo-documento" element={<TipoDocumento />} />
@@ -65,6 +77,6 @@ export function AppRouter() {
         <Route path="/sistema/estado-pago" element={<EstadoPago />} />
         <Route path="/sistema/estado-facturacion" element={<EstadoFacturacion />} /> */}
 
-      </Routes>
+    </Routes>
   );
 }

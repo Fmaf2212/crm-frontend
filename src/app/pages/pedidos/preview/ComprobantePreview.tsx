@@ -1,24 +1,46 @@
 import { PDFViewer } from "@react-pdf/renderer";
-import PedidoComprobantePDF from "../components/PedidoComprobantePDF"; // ajusta la ruta si tu carpeta es distinta
-
-// ⚠ Importa el tipo Pedido desde donde lo tengas definido
-import type { Pedido } from "../SeguimientoPedido";
+import PedidoComprobantePDF from "../components/PedidoComprobantePDF";
 
 export default function ComprobantePreview() {
-  // ===== MOCK para previsualizar =====
-  const pedidoMock: Pedido = {
+  const dataMock = {
     codigo: "PED001",
-    cliente: "Juan Pérez",
-    telefono: "987654321",
-    total: 150,
-    asesor: "Carlos Mendoza",
-    estadoPedido: "Confirmada",
-    estadoPago: "Pendiente",
-    estadoFacturacion: "Pendiente",
-    fechaIngreso: "15/11/2025 - 14:30",
-    fechaConfirmacion: "15/11/2025 - 15:45",
-    fechaPactada: "16/11/2025",
-    fechaEntrega: "16/11/2025",
+    fecha_Registro_Pedido: "15/11/2025 14:30",
+
+    detalleClientePorPedido: {
+      cliente: "Juan Pérez",
+      tipo_Documento: "DNI",
+      numero_Documento: "12345678",
+    },
+
+    detalleLeadPorPedido: {
+      numero_De_Contacto: "987654321",
+      asesor: "Carlos Mendoza",
+      supervisor: "Ana Torres",
+    },
+
+    detalleDeliveryPorPedido: {
+      direccion: "Av. Siempre Viva 742",
+      provincia: "Lima",
+      medio_Envio: "Shalom",
+      indicaciones: null,
+    },
+
+    detallePedido: {
+      nombre_Producto: "Producto Demo",
+      precio_Regular: 100,
+      nombre_Descuento: "Sin Descuento",
+      precio_Promocional: 80,
+      cantidad: 1,
+      subtotal_Promocional: 80,
+    },
+
+    monto_Total_Regular: 100,
+    monto_Total_Promocional: 80,
+    precioDelivery: 0,
+
+    estatus_Operacion: "Ingresada",
+    estatus_Pago: "Pendiente",
+    estatus_Facturacion: "Pendiente",
   };
 
   return (
@@ -28,7 +50,7 @@ export default function ComprobantePreview() {
       </h1>
 
       <PDFViewer width="100%" height="90%">
-        <PedidoComprobantePDF pedido={pedidoMock} />
+        <PedidoComprobantePDF data={dataMock} />
       </PDFViewer>
     </div>
   );

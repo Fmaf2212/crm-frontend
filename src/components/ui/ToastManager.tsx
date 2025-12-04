@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Toast } from "./Toast";
+import { Toast } from "./toast";
 
-let externalShowToast = (msg: string, type: "success" | "error") => {};
+let externalShowToast : (msg: string, type: "success" | "error" | "info") => void;
 
 export function ToastManager() {
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   externalShowToast = (message, type) => {
     setToast({ message, type });
@@ -28,6 +28,6 @@ export function ToastManager() {
 }
 
 // ESTA es la función que podrás usar en cualquier parte:
-export function showToast(message: string, type: "success" | "error") {
+export function showToast(message: string, type: "success" | "error" | "info") {
   externalShowToast(message, type);
 }

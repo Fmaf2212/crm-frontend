@@ -1,6 +1,6 @@
 import { AppLayout } from "@/app/layout/AppLayout";
-import { Card } from "@/components/ui/Card";
-import { SectionTitle } from "@/components/ui/SectionTitle";
+import { Card } from "@/components/ui/card";
+import { SectionTitle } from "@/components/ui/sectionTitle";
 import { ShieldCheck } from "lucide-react";
 import React, { useState } from "react";
 

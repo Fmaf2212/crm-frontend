@@ -18,6 +18,9 @@ export function Sidebar() {
   const fechaCapitalizada =
   fechaFormateada.charAt(0).toUpperCase() + fechaFormateada.slice(1);
 
+  const userLS = localStorage.getItem("sn_user");
+  const user = userLS ? JSON.parse(userLS) : null;
+
   return (
     <aside className="w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] h-screen border-r border-[var(--sidebar-border)] flex flex-col">
       <div className="w-full flex flex-col justify-center p-6 border-b border-white/20">
@@ -27,7 +30,9 @@ export function Sidebar() {
           className="w-full object-contain p-5"
         />
         <div className="text-white/80 text-sm">
-          <p className="font-medium mb-1">Usuario</p>
+          <p className="font-medium mb-1">
+            {user ? user.nombres : "Usuario"}
+          </p>
           <p className="text-xs mb-1 opacity-90">{fechaCapitalizada}</p>
           <p className="text-xs opacity-90">Hora: {now.toLocaleTimeString("es-PE", { hour12: false })}</p>
         </div>
@@ -50,7 +55,7 @@ export function Sidebar() {
             icon={<ShoppingCart className="w-4 h-4" />}
             label="GESTIONAR PEDIDOS"
             items={[
-              { name: "Crear Pedido", path: "/pedidos/crear" },
+              // { name: "Crear Pedido", path: "/pedidos/crear" },
               { name: "Seguimiento Pedido", path: "/pedidos/seguimiento" },
             ]}
           />

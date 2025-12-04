@@ -1,47 +1,41 @@
 import { AppLayout } from "@/app/layout/AppLayout";
-import { Card } from "@/components/ui/Card";
-import { SectionTitle } from "@/components/ui/SectionTitle";
+import { Card } from "@/components/ui/card";
+import { SectionTitle } from "@/components/ui/sectionTitle";
 import { PackagePlus, PackageSearch, Copy, Edit, Trash, UploadCloud, X } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import ReactSelect from "react-select";
 import { ProductService } from "@/services/productService";
-import { showToast } from "@/components/ui/ToastManager";
-import { AlertModal } from "@/components/ui/AlertModal";
-import { ConfirmModal } from "@/components/ui/ConfirmModal";
-
-const productosDisponiblesMock: ProductoOption[] = [
-  {
-    value: "1",
-    label: "SN-5001 - Maca Premium 500mg",
-    precioRegular: 45.90
-  }
-];
-
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
+import { showToast } from "@/components/ui/toastManager";
+import { AlertModal } from "@/components/ui/alertModal";
+import { ConfirmModal } from "@/components/ui/confirmModal";
 
 type OptionBasic = { value: string; label: string };
 
 type ProductoOption = {
   value: string;
   label: string;
-  precioRegular: number;
+  precioRegular?: number;
 };
-
-const mockListaProductos = [
-  { nombre: "Maca Power 500mg", codigo: "PROD-001", linea: "Suplementos", tipo: "Unidad", precio: 45.0 },
-  { nombre: "Pack Energía Natural", codigo: "PROD-002", linea: "Suplementos", tipo: "Pack", precio: 120.0 },
-];
 
 const selectFlotanteStyles = {
   menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
 };
+
+const BASE_IMG_URL = "https://global.mundosantanatura.com/StaticFiles/ProductoImg/";
+
+const obtenerNombreLinea = (p: any, listaLineas: any[]) => {
+  if (p.nombre_Linea_Producto) return p.nombre_Linea_Producto;
+
+  if (p.id_Linea_Producto) {
+    const linea = listaLineas.find(
+      l => l.id_Linea_Producto === p.id_Linea_Producto
+    );
+    return linea ? linea.nombre_Linea_Producto : "—";
+  }
+
+  return "—";
+};
+
 
 const CrearProducto: React.FC = () => {
   const [codigo, setCodigo] = useState("");
@@ -52,15 +46,17 @@ const CrearProducto: React.FC = () => {
   const [peso, setPeso] = useState("0.00");
   const [descripcion, setDescripcion] = useState("");
 
-  const [fabricacionPropia, setFabricacionPropia] = useState("");
+  const [fabricacionPropia, setFabricacionPropia] = useState<boolean | null>(null);
   const [lineaDeProducto, setLineaDeProducto] = useState("");
-  const [tipoAgrupacion, setTipoAgrupacion] = useState("");
+  const [tipoAgrupacion, setTipoAgrupacion] = useState<boolean | null>(null);
   const [tipoDeProducto, setTipoDeProducto] = useState("");
   const [estadoProducto, setEstadoProducto] = useState("");
 
   const [listaEstados, setListaEstados] = useState<any[]>([]);
   const [listaLineas, setListaLineas] = useState<any[]>([]);
   const [listaTipos, setListaTipos] = useState<any[]>([]);
+
+  const [productosPaqueteOptions, setProductosPaqueteOptions] = useState<ProductoOption[]>([]);
 
   const [alertConfig, setAlertConfig] = useState({
     open: false,
@@ -88,19 +84,24 @@ const CrearProducto: React.FC = () => {
 
   const [imagenProducto, setImagenProducto] = useState<File | null>(null);
   const [previewImagen, setPreviewImagen] = useState<string | null>(null);
+  const [nombreImagenBD, setNombreImagenBD] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const [bodyTemp, setBodyTemp] = useState<any>(null);
 
   const [filtroNombre, setFiltroNombre] = useState("");
   const [filtroLinea, setFiltroLinea] = useState("");
-  const [filtroTipoAgrupacion, setFiltroTipoAgrupacion] = useState("");
+  const [filtroTipoAgrupacion, setFiltroTipoAgrupacion] = useState<boolean | null>(null);
   const [filtroTipoProducto, setFiltroTipoProducto] = useState("");
-  const [filtroFabricacion, setFiltroFabricacion] = useState("");
+  const [filtroFabricacion, setFiltroFabricacion] = useState<boolean | null>(null);
   const [filtroMin, setFiltroMin] = useState("");
   const [filtroMax, setFiltroMax] = useState("");
 
-  const [lista, setLista] = useState(mockListaProductos);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+
+  const [lista, setLista] = useState<any[]>([]);
+
+  const [modoFormulario, setModoFormulario] = useState<"crear" | "editar">("crear");
+
 
   const showAlert = (title: string, message: string) => {
     setAlertConfig({
@@ -111,15 +112,16 @@ const CrearProducto: React.FC = () => {
   };
 
   const limpiarCampos = () => {
+    setCodigo("");
     setCodigoERP("");
     setNombre("");
     setPrecioRegular("0.00");
     setPrecioPromocional("0.00");
     setPeso("0.00");
     setDescripcion("");
-    setFabricacionPropia("");
+    setFabricacionPropia(null);
     setLineaDeProducto("");
-    setTipoAgrupacion("");
+    setTipoAgrupacion(null);
     setTipoDeProducto("");
     setEstadoProducto("");
     setProductosPaquete([]);
@@ -134,7 +136,7 @@ const CrearProducto: React.FC = () => {
     if (!nombre.trim())
       return "Debe ingresar el Nombre del Producto.";
 
-    const esPaquete = tipoAgrupacion === "paquete";
+    const esPaquete = tipoAgrupacion === true;
 
     if (!esPaquete) {
       if (!precioRegular || Number(precioRegular) <= 0)
@@ -147,13 +149,13 @@ const CrearProducto: React.FC = () => {
     if (!peso || Number(peso) <= 0)
       return "Debe ingresar el Peso del Producto.";
 
-    if (!fabricacionPropia)
+    if (fabricacionPropia === null)
       return "Debe seleccionar Fabricación Propia.";
 
     if (!lineaDeProducto)
       return "Debe seleccionar Línea de Producto.";
 
-    if (!tipoAgrupacion)
+    if (tipoAgrupacion === null)
       return "Debe seleccionar Tipo de Agrupación.";
 
     if (!tipoDeProducto)
@@ -167,14 +169,17 @@ const CrearProducto: React.FC = () => {
         return "Debe agregar al menos un producto al paquete.";
 
       for (const fila of productosPaquete) {
-        if (!fila.producto)
-          return "Debe seleccionar un producto en cada fila del paquete.";
+        if (!fila.producto?.value)
+          return "Cada fila del paquete debe tener un producto seleccionado.";
 
         if (fila.cantidad <= 0)
-          return "La cantidad en el paquete debe ser mayor a 0.";
+          return "Cada producto debe tener una cantidad mayor a 0.";
 
         if (fila.precioPromocionalPaquete < 0)
           return "El precio promocional del paquete no puede ser negativo.";
+
+        if (!fila.precioRegularPaquete || fila.precioRegularPaquete <= 0)
+          return "No se pudo obtener el precio regular del producto seleccionado.";
       }
     }
 
@@ -190,21 +195,20 @@ const CrearProducto: React.FC = () => {
       return;
     }
 
-    let imagenBase64 = "";
-    if (imagenProducto) {
-      imagenBase64 = await fileToBase64(imagenProducto);
-    }
-
-    const esPaquete = tipoAgrupacion === "paquete";
+    const esPaquete = tipoAgrupacion === true;
 
     const requestInsertProductoPaquetes = esPaquete
       ? productosPaquete.map((f) => ({
         idProducto: Number(f.producto?.value) || 0,
         precioRegularEnPaquete: parseFloat(f.precioRegularPaquete.toFixed(2)),
-        precioPromocionalEnPaquete: parseFloat(f.precioPromocionalPaquete.toFixed(2)),
+        precioPromocionalEnPaquete: parseFloat(
+          f.precioPromocionalPaquete.toFixed(2)
+        ),
         cantidadEnPaquete: f.cantidad,
         subtotalRegularPaquete: parseFloat(f.subtotalRegular.toFixed(2)),
-        subtotalPromocionalPaquete: parseFloat(f.subtotalPromocional.toFixed(2)),
+        subtotalPromocionalPaquete: parseFloat(
+          f.subtotalPromocional.toFixed(2)
+        ),
         diferencia: parseFloat(f.diferencia.toFixed(2)),
       }))
       : [];
@@ -216,29 +220,52 @@ const CrearProducto: React.FC = () => {
       precioInterno: parseFloat(Number(precioPromocional).toFixed(2)),
       peso: Number(peso) || 0,
       descripcion,
-      fabricacionPropia: fabricacionPropia === "1",
+      fabricacionPropia: fabricacionPropia === true,
+
       idLineaProducto: Number(lineaDeProducto),
-      tipoAgrupacion: tipoAgrupacion === "paquete",
+
+      tipoAgrupacion: tipoAgrupacion === true,
+
       idTipoProducto: Number(tipoDeProducto),
       idEstadoProducto: Number(estadoProducto),
-      imagenProducto: imagenBase64,
+
+      imagenProducto: "",
+
       idUsuarioRegistroProducto: 1,
+
       requestInsertProductoPaquetes,
     };
-
-    setBodyTemp(payload);
-
     setConfirmConfig({
       open: true,
       title: "Confirmar creación",
       message: "¿Desea registrar este producto?",
-      onConfirm: confirmarGuardar,
+      onConfirm: () => confirmarGuardar(payload),
     });
   };
 
-  const confirmarGuardar = async () => {
+  const confirmarGuardar = async (payload: any) => {
     try {
-      const response = await ProductService.insertProducto(bodyTemp);
+      let nombreImagen = "";
+
+      if (imagenProducto) {
+        const uploadResult = await ProductService.uploadImage(
+          imagenProducto,
+          "none"
+        );
+
+        if (uploadResult.error) {
+          showToast("Error al subir la imagen.", "error");
+          return;
+        }
+
+        nombreImagen = uploadResult.data;
+      }
+
+      const payloadFinal = {
+        ...payload,
+        imagenProducto: nombreImagen,
+      };
+      const response = await ProductService.insertProducto(payloadFinal);
 
       if (!response.error) {
         showToast("Producto registrado correctamente.", "success");
@@ -249,7 +276,12 @@ const CrearProducto: React.FC = () => {
     } catch (err) {
       showToast("Ocurrió un error al registrar.", "error");
     } finally {
-      setConfirmConfig({ open: false, title: "", message: "", onConfirm: () => {} });
+      setConfirmConfig({
+        open: false,
+        title: "",
+        message: "",
+        onConfirm: () => { },
+      });
     }
   };
 
@@ -261,6 +293,7 @@ const CrearProducto: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImagenProducto(file);
+    setNombreImagenBD("");
 
 
     const reader = new FileReader();
@@ -289,15 +322,38 @@ const CrearProducto: React.FC = () => {
     setProductosPaquete(nuevo);
   };
 
-  const actualizarFila = (index: number, campo: string, valor: any) => {
+  const actualizarFila = async (index: number, campo: string, valor: any) => {
     const filas = [...productosPaquete];
     const fila = filas[index];
 
     if (campo === "producto") {
       fila.producto = valor;
 
-      const prod = productosDisponiblesMock.find((p) => p.value === valor.value);
-      fila.precioRegularPaquete = prod ? prod.precioRegular : 0;
+      if (valor && valor.value) {
+        try {
+          const idProducto = Number(valor.value);
+
+          const resDetalle = await ProductService.getProductoDetalleParaPaquete(idProducto);
+
+          if (!resDetalle.error && resDetalle.data) {
+            const precioRegular =
+              resDetalle.data.precio_Regular ??
+              resDetalle.data.precioRegular ??
+              0;
+
+            fila.precioRegularPaquete = Number(precioRegular) || 0;
+          } else {
+            fila.precioRegularPaquete = 0;
+            showToast("No se pudo obtener el precio del producto seleccionado.", "error");
+          }
+        } catch (err) {
+          console.error("Error obteniendo detalle de producto para paquete", err);
+          fila.precioRegularPaquete = 0;
+          showToast("Error al obtener el detalle del producto.", "error");
+        }
+      } else {
+        fila.precioRegularPaquete = 0;
+      }
     }
 
     if (campo === "precioPromocionalPaquete") {
@@ -309,30 +365,25 @@ const CrearProducto: React.FC = () => {
     }
 
     if (campo === "cantidad") {
-      fila.cantidad = Number(valor) > 0 ? Number(valor) : 1;
+      let val = Number(valor);
+      if (isNaN(val) || val < 1) val = 1;
+      fila.cantidad = val;
     }
 
-    fila.subtotalRegular = fila.precioRegularPaquete * fila.cantidad;
-    fila.subtotalPromocional = fila.precioPromocionalPaquete * fila.cantidad;
+    const precioReg = Number(fila.precioRegularPaquete) || 0;
+    const cantidad = Number(fila.cantidad) || 1;
+    const precioPromo = Number(fila.precioPromocionalPaquete) || 0;
+
+    fila.subtotalRegular = precioReg * cantidad;
+    fila.subtotalPromocional = precioPromo * cantidad;
     fila.diferencia = fila.subtotalRegular - fila.subtotalPromocional;
 
     filas[index] = fila;
     setProductosPaquete(filas);
   };
 
-  const duplicarProducto = (index: number) => {
-    const producto = lista[index];
-    const copia = {
-      ...producto,
-      codigo: producto.codigo + "-COPY",
-    };
-
-    const nuevaLista = [...lista.slice(0, index + 1), copia, ...lista.slice(index + 1)];
-    setLista(nuevaLista);
-  };
-
   useEffect(() => {
-    if (tipoAgrupacion === "paquete") {
+    if (tipoAgrupacion === true) {
       if (productosPaquete.length === 0) {
         setPrecioRegular("0.00");
         setPrecioPromocional("0.00");
@@ -365,6 +416,36 @@ const CrearProducto: React.FC = () => {
 
         const resTipo = await ProductService.getTipoProducto();
         if (!resTipo.error) setListaTipos(resTipo.data);
+
+        const resProductos = await ProductService.getProductoDropDown();
+        if (!resProductos.error && Array.isArray(resProductos.data)) {
+        const opts: ProductoOption[] = resProductos.data.map((item: any) => {
+          const id =
+            item.id_Producto ??
+            item.idProducto ??
+            item.id ??
+            0;
+
+          const codigo =
+            item.id_Producto_ERP ??
+            item.codigoProducto ??
+            item.codigo ??
+            "";
+
+          const nombre =
+            item.nombre_Producto ??
+            item.nombreProducto ??
+            item.descripcion ??
+            "Producto";
+
+          return {
+            value: String(id),
+            label: codigo ? `${codigo} - ${nombre}` : nombre,
+          };
+        });
+
+        setProductosPaqueteOptions(opts);
+      }
       } catch (err) {
         console.error("Error cargando combos", err);
       }
@@ -373,16 +454,16 @@ const CrearProducto: React.FC = () => {
     cargarCombos();
   }, []);
 
-  const esPaquete = tipoAgrupacion === "paquete";
+  const esPaquete = tipoAgrupacion === true;
 
-  const opcionesFabricacion: OptionBasic[] = [
-    { value: "1", label: "Sí" },
-    { value: "0", label: "No" },
+  const opcionesFabricacion = [
+    { value: true, label: "Sí" },
+    { value: false, label: "No" },
   ];
 
-  const opcionesTipoAgrupacion: OptionBasic[] = [
-    { value: "individual", label: "Individual" },
-    { value: "paquete", label: "Paquete" },
+  const opcionesTipoAgrupacion = [
+    { value: false, label: "Individual" },
+    { value: true, label: "Paquete" }
   ];
 
   const opcionesEstado: OptionBasic[] = listaEstados.map((e: any) => ({
@@ -400,10 +481,289 @@ const CrearProducto: React.FC = () => {
     label: t.nombre_Tipo_Producto,
   }));
 
-  const opcionesTipoAgrupacionFiltro: OptionBasic[] = [
-    { value: "Unidad", label: "Unidad" },
-    { value: "Pack", label: "Pack" },
+  const opcionesTipoAgrupacionFiltro = [
+    { value: false, label: "Individual" },
+    { value: true, label: "Paquete" }
   ];
+
+  useEffect(() => {
+    cargarProductos();
+  }, [paginaActual]);
+
+  const cargarProductos = async () => {
+    try {
+      const body = {
+        number: paginaActual,
+        size: 5,
+        nombreProducto: filtroNombre || "",
+        idLineaProducto: filtroLinea ? Number(filtroLinea) : 0,
+
+        tipoAgrupacion: filtroTipoAgrupacion !== null ? filtroTipoAgrupacion : false,
+
+        idTipoProducto: filtroTipoProducto ? Number(filtroTipoProducto) : 0,
+
+        fabricacionPropia: filtroFabricacion !== null ? filtroFabricacion : true,
+
+        precioMinimo: filtroMin ? Number(filtroMin) : 0,
+        precioMaximo: filtroMax ? Number(filtroMax) : 0,
+      };
+
+      const inicio = performance.now();  // Marca de tiempo
+
+      const res = await ProductService.getProductosAdmin(body);
+
+      const fin = performance.now();     // Marca de tiempo al terminar
+
+      console.log(`⏱ Tiempo de carga: ${(fin - inicio).toFixed(2)} ms`);
+
+      if (!res.error && res.data?.productoGeneral) {
+
+        setLista(res.data.productoGeneral);
+        setTotalPaginas(res.data.totalPages);
+
+        // 🔥 Ajustar página si quedó fuera del límite
+        if (paginaActual > res.data.totalPages) {
+          setPaginaActual(res.data.totalPages || 1);
+        }
+
+      } else {
+        setLista([]);
+        setTotalPaginas(1);
+      }
+
+    } catch (error) {
+      console.error("Error cargando productos", error);
+    }
+  };
+
+  const cargarProductoAlFormulario = (p: any) => {
+    setCodigo(p.id_Producto || "");
+    setCodigoERP(p.id_Producto_ERP || "");
+    setNombre(p.nombre_Producto || "");
+    setPrecioRegular(String(p.precio_Regular || "0.00"));
+    setPrecioPromocional(String(p.precio_Interno || "0.00"));
+    setPeso(String(p.peso || "0.00"));
+    setDescripcion(p.descripcion || "");
+
+    setFabricacionPropia(p.fabricacion_Propia === true);
+    setLineaDeProducto(String(p.id_Linea_Producto || ""));
+    setTipoAgrupacion(p.tipo_Agrupacion === true);
+    setTipoDeProducto(String(p.id_Tipo_Producto || ""));
+    setEstadoProducto(String(p.id_Estado_Producto || ""));
+
+    if (p.imagen_Producto && p.imagen_Producto !== "") {
+      setNombreImagenBD(p.imagen_Producto);
+
+      const preview = p.imagen_Producto.startsWith("http")
+        ? p.imagen_Producto
+        : BASE_IMG_URL + p.imagen_Producto;
+
+      setPreviewImagen(preview);
+      setImagenProducto(null);
+    } else {
+      setPreviewImagen("");
+      setNombreImagenBD("");
+      setImagenProducto(null);
+    }
+
+    if (p.tipo_Agrupacion === true && Array.isArray(p.productoPaqueteDetails)) {
+      const filas = p.productoPaqueteDetails.map((item: any) => ({
+        producto: productosPaqueteOptions.find(opt => opt.value === String(item.id_Producto)) || null,
+        precioRegularPaquete: item.precio_Regular_En_Paquete,
+        precioPromocionalPaquete: item.precio_Promocional_En_Paquete,
+        cantidad: item.cantidad_En_Paquete,
+        subtotalRegular: item.subtotal_Regular_Paquete,
+        subtotalPromocional: item.subtotal_Promocional_Paquete,
+        diferencia: item.diferencia,
+      }));
+
+      setProductosPaquete(filas);
+    } else {
+      setProductosPaquete([]);
+    }
+  };
+
+  const handleEditProducto = async (producto: any) => {
+    console.log(producto);
+    if (!producto.id_Producto) {
+      cargarProductoAlFormulario(producto);
+      setModoFormulario("crear");
+      showToast("Copia cargada. Ahora puedes crear el nuevo producto.", "info");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    try {
+      const res = await ProductService.getProductForEdit({
+        idProducto: producto.id_Producto,
+      });
+
+      if (res.error || !res.data) {
+        showToast("No se pudo cargar el producto", "error");
+        return;
+      }
+
+      cargarProductoAlFormulario(res.data);
+      setModoFormulario("editar");
+
+      showToast("Producto cargado para edición.", "success");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
+    } catch (error) {
+      console.error(error);
+      showToast("Error cargando datos del producto.", "error");
+    }
+  };
+
+  const handleDuplicarProducto = async (producto: any) => {
+    const res = await ProductService.getProductForEdit({
+      idProducto: producto.id_Producto
+    });
+    console.log(res);
+    if (res.error || !res.data) {
+      showToast("No se pudo duplicar el producto.", "error");
+      return;
+    }
+
+    const p = res.data;
+
+    const copia = {
+      ...p,
+      id_Producto: null,
+      id_Producto_ERP: p.id_Producto_ERP + "-COPIA",
+      nombre_Producto: p.nombre_Producto + " (Copia)"
+    };
+
+    setLista((prev) => [...prev, copia]);
+
+    showToast("Producto duplicado en borrador. Edítalo antes de crear.", "success");
+  };
+
+  const handleActualizarProducto = async () => {
+    const errorMsg = validarCampos();
+    if (errorMsg) {
+      showToast(errorMsg, "error");
+      return;
+    }
+
+    setConfirmConfig({
+      open: true,
+      title: "Confirmar actualización",
+      message: "¿Está seguro que desea actualizar este producto?",
+      onConfirm: () => confirmarActualizar(),
+    });
+  };
+
+  const confirmarActualizar = async () => {
+    try {
+      let imagenParaBD = nombreImagenBD;
+
+      // Si el usuario subió una nueva imagen
+      if (imagenProducto) {
+        const uploadResult = await ProductService.uploadImage(
+          imagenProducto,
+          "none"
+        );
+
+        if (uploadResult.error) {
+          showToast("Error al subir la imagen.", "error");
+          return;
+        }
+
+        imagenParaBD = uploadResult.data;
+      }
+
+      const esPaquete = tipoAgrupacion === true;
+
+      const requestInsertProductoPaquetes = esPaquete
+        ? productosPaquete.map((fila) => ({
+          idProducto: Number(fila.producto?.value || 0),
+          precioRegularEnPaquete: Number(fila.precioRegularPaquete),
+          precioPromocionalEnPaquete: Number(fila.precioPromocionalPaquete),
+          cantidadEnPaquete: Number(fila.cantidad),
+          subtotalRegularPaquete: Number(fila.subtotalRegular),
+          subtotalPromocionalPaquete: Number(fila.subtotalPromocional),
+          diferencia: Number(fila.diferencia),
+        }))
+        : [];
+
+      const payload = {
+        idProducto: Number(codigo),
+        idProductoERP: codigoERP,
+        nombreProducto: nombre,
+        precioRegular: Number(precioRegular),
+        precioInterno: Number(precioPromocional),
+        peso: Number(peso),
+        descripcion,
+        fabricacionPropia: fabricacionPropia === true,
+        idLineaProducto: Number(lineaDeProducto),
+        tipoAgrupacion: esPaquete,
+        idTipoProducto: Number(tipoDeProducto),
+        idEstadoProducto: Number(estadoProducto),
+        imagenProducto: imagenParaBD,
+        idUsuarioRegistroProducto: 1,
+        requestInsertProductoPaquetes,
+      };
+
+      const response = await ProductService.updateProducto(payload);
+
+      if (!response.error) {
+        showToast("Producto actualizado correctamente.", "success");
+        limpiarCampos();
+        setModoFormulario("crear");
+        cargarProductos(); // refresca la tabla
+      } else {
+        showToast(response.message || "Error al actualizar producto.", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Error inesperado al actualizar.", "error");
+    } finally {
+      setConfirmConfig({
+        open: false,
+        title: "",
+        message: "",
+        onConfirm: () => { },
+      });
+    }
+  };
+
+  const handleEliminarProducto = (producto: any) => {
+    if (!producto.id_Producto) {
+      showToast("Este producto no existe en la base de datos.", "error");
+      return;
+    }
+
+    setConfirmConfig({
+      open: true,
+      title: "Confirmar eliminación",
+      message: `¿Desea eliminar el producto "${producto.nombre_Producto}"?`,
+      onConfirm: () => confirmarEliminarProducto(producto.id_Producto),
+    });
+  };
+
+  const confirmarEliminarProducto = async (idProducto: number) => {
+    try {
+      const res = await ProductService.deleteProducto(idProducto);
+
+      if (!res.error) {
+        showToast("Producto eliminado correctamente.", "success");
+        cargarProductos(); // refresca tabla
+      } else {
+        showToast(res.message || "No se pudo eliminar el producto.", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Ocurrió un error al intentar eliminar el producto.", "error");
+    } finally {
+      setConfirmConfig({
+        open: false,
+        title: "",
+        message: "",
+        onConfirm: () => { },
+      });
+    }
+  };
 
   return (
     <AppLayout title="Crear Producto">
@@ -530,7 +890,7 @@ const CrearProducto: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Peso (kg) <span className="text-red-500">*</span>
+                Peso (gr) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -555,7 +915,6 @@ const CrearProducto: React.FC = () => {
               />
             </div>
 
-            {/* Imagen + preview */}
             <div className="grid gap-6 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -611,7 +970,7 @@ const CrearProducto: React.FC = () => {
                   value={
                     opcionesFabricacion.find((o) => o.value === fabricacionPropia) || null
                   }
-                  onChange={(opt) => setFabricacionPropia(opt?.value || "")}
+                  onChange={(opt) => setFabricacionPropia(opt?.value || null)}
                   isClearable
                   menuPortalTarget={document.body}
                   styles={selectFlotanteStyles}
@@ -643,9 +1002,9 @@ const CrearProducto: React.FC = () => {
                 <ReactSelect
                   options={opcionesTipoAgrupacion}
                   value={
-                    opcionesTipoAgrupacion.find((o) => o.value === tipoAgrupacion) || null
+                    opcionesTipoAgrupacion.find((o) => o.value === tipoAgrupacion) ?? null
                   }
-                  onChange={(opt) => setTipoAgrupacion(opt?.value || "")}
+                  onChange={(opt) => setTipoAgrupacion(opt?.value ?? null)}
                   isClearable
                   menuPortalTarget={document.body}
                   styles={selectFlotanteStyles}
@@ -689,7 +1048,7 @@ const CrearProducto: React.FC = () => {
               </div>
             </div>
 
-            {tipoAgrupacion === "paquete" && (
+            {tipoAgrupacion === true && (
               <div className="mt-4">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Productos del Paquete
@@ -722,7 +1081,7 @@ const CrearProducto: React.FC = () => {
                         Producto
                       </label>
                       <ReactSelect
-                        options={productosDisponiblesMock}
+                        options={productosPaqueteOptions}
                         value={fila.producto}
                         onChange={(opt) => actualizarFila(index, "producto", opt)}
                         menuPortalTarget={document.body}
@@ -750,6 +1109,7 @@ const CrearProducto: React.FC = () => {
                       <input
                         type="number"
                         min="0"
+                        step="0.01"
                         value={fila.precioPromocionalPaquete}
                         onChange={(e) =>
                           actualizarFila(
@@ -834,12 +1194,22 @@ const CrearProducto: React.FC = () => {
                 Limpiar campos
               </button>
 
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded-xl bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800"
-              >
-                Crear Producto
-              </button>
+              {modoFormulario === "crear" ? (
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded-xl bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800"
+                >
+                  Crear Producto
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleActualizarProducto}
+                  className="inline-flex items-center justify-center rounded-xl bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800"
+                >
+                  Actualizar Producto
+                </button>
+              )}
             </div>
           </form>
         </Card>
@@ -885,11 +1255,9 @@ const CrearProducto: React.FC = () => {
                 <ReactSelect
                   options={opcionesTipoAgrupacionFiltro}
                   value={
-                    opcionesTipoAgrupacionFiltro.find(
-                      (o) => o.value === filtroTipoAgrupacion
-                    ) || null
+                    opcionesTipoAgrupacionFiltro.find((o) => o.value === filtroTipoAgrupacion) ?? null
                   }
-                  onChange={(opt) => setFiltroTipoAgrupacion(opt?.value || "")}
+                  onChange={(opt) => setFiltroTipoAgrupacion(opt?.value ?? null)}
                   isClearable
                   menuPortalTarget={document.body}
                   styles={selectFlotanteStyles}
@@ -925,7 +1293,7 @@ const CrearProducto: React.FC = () => {
                     opcionesFabricacion.find((o) => o.value === filtroFabricacion) ||
                     null
                   }
-                  onChange={(opt) => setFiltroFabricacion(opt?.value || "")}
+                  onChange={(opt) => setFiltroFabricacion(opt?.value || null)}
                   isClearable
                   menuPortalTarget={document.body}
                   styles={selectFlotanteStyles}
@@ -962,6 +1330,19 @@ const CrearProducto: React.FC = () => {
               </div>
             </div>
 
+            <div className="flex w-full justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setPaginaActual(1);
+                  cargarProductos();
+                }}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-white text-sm hover:bg-emerald-700"
+              >
+                Filtrar
+              </button>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse">
                 <thead>
@@ -971,31 +1352,64 @@ const CrearProducto: React.FC = () => {
                     <th className="py-3 px-2">Línea</th>
                     <th className="py-3 px-2">Tipo</th>
                     <th className="py-3 px-2">Precio (S/)</th>
+                    <th className="py-3 px-2">Imagen</th>
+                    <th className="py-3 px-2">Fabricación</th>
                     <th className="py-3 px-2">Acciones</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {lista.map((p, index) => (
-                    <tr key={p.codigo} className="border-b border-slate-100 text-sm text-slate-800">
-                      <td className="py-3 px-2 text-emerald-700 font-semibold">{p.codigo}</td>
-                      <td className="py-3 px-2">{p.nombre}</td>
-                      <td className="py-3 px-2">{p.linea}</td>
-                      <td className="py-3 px-2">{p.tipo}</td>
-                      <td className="py-3 px-2">S/ {p.precio.toFixed(2)}</td>
+                    <tr key={index} className="border-b border-slate-100 text-sm text-slate-800">
 
+                      <td className="py-3 px-2 text-emerald-700 font-semibold">
+                        {p.id_Producto}
+                      </td>
+
+                      <td className="py-3 px-2">{p.nombre_Producto}</td>
+
+                      <td className="py-3 px-2">{obtenerNombreLinea(p, listaLineas)}</td>
+
+                      <td className="py-3 px-2">
+                        {p.tipo_Agrupacion ? "Paquete" : "Individual"}
+                      </td>
+
+                      <td className="py-3 px-2">S/ {Number(p.precio_Regular).toFixed(2)}</td>
+
+                      <td className="py-3 px-2">
+                        {p.imagen_Producto ? (
+                          <img
+                            src={`https://global.mundosantanatura.com/StaticFiles/ProductoImg/${p.imagen_Producto}`}
+                            alt={p.nombre_Producto}
+                            className="w-12 h-12 object-contain rounded-md border"
+                          />
+                        ) : (
+                          <span className="text-slate-400 text-xs">Sin imagen</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-2">
+                        {p.fabricacion_Propia ? "Sí" : "No"}
+                      </td>
                       <td className="py-3 px-2 flex gap-2">
-                        <button className="p-2 rounded-xl border border-slate-300 hover:bg-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => handleEditProducto(p)}
+                          className="p-2 rounded-xl border border-slate-300 hover:bg-slate-100"
+                        >
                           <Edit size={16} />
                         </button>
                         <button
                           type="button"
-                          onClick={() => duplicarProducto(index)}
+                          onClick={() => handleDuplicarProducto(p)}
                           className="p-2 rounded-xl border border-slate-300 hover:bg-slate-100"
                         >
                           <Copy size={16} />
                         </button>
-                        <button className="p-2 rounded-xl border border-red-300 text-red-600 hover:bg-red-50">
+                        <button
+                          type="button"
+                          onClick={() => handleEliminarProducto(p)}
+                          className="p-2 rounded-xl border border-red-300 text-red-600 hover:bg-red-50"
+                        >
                           <Trash size={16} />
                         </button>
                       </td>
@@ -1003,6 +1417,27 @@ const CrearProducto: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+              <div className="flex items-center justify-center gap-3 mt-6">
+                <button
+                  disabled={paginaActual === 1}
+                  onClick={() => setPaginaActual(prev => prev - 1)}
+                  className="px-3 py-1 bg-slate-200 rounded disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+
+                <span className="text-sm">
+                  Página {paginaActual} de {totalPaginas}
+                </span>
+
+                <button
+                  disabled={paginaActual === totalPaginas}
+                  onClick={() => setPaginaActual(prev => prev + 1)}
+                  className="px-3 py-1 bg-slate-200 rounded disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           </div>
         </Card>

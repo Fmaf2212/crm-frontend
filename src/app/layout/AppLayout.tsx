@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
-import { ToastManager } from "@/components/ui/ToastManager";
+import { ToastManager } from "@/components/ui/toastManager";
 
 export function AppLayout({ children, title }: { children: React.ReactNode; title?: string }) {
 

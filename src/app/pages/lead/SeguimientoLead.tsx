@@ -1,21 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Toast } from "@/components/ui/Toast";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Toast } from "@/components/ui/toast";
 import { ListFilter, Eye, ShoppingCart, Pencil, X } from "lucide-react";
 import { AppLayout } from "@/app/layout/AppLayout";
 import ReactSelect from "react-select";
-
-const USUARIO_LOGUEADO = {
-  nombre: "Carlos Mendoza",
-  rol: "supervisor", // "asesor" o "supervisor"
-};
+import { LeadService } from "@/services/leadService";
+import { useNavigate } from "react-router-dom";
 
 type LeadEstado =
   | "Nuevo"
   | "Agendado"
-  | "En conversación"
+  | "En Conversación"
   | "Interesado"
   | "Oferta enviada"
   | "Cierre pendiente"
@@ -33,7 +30,7 @@ type Lead = {
   asesor: string;
   supervisor: string;
   campania: string;
-  estadoLead: LeadEstado;
+  estadoLead: LeadEstado | string;
 };
 
 type HistorialEstado = {
@@ -47,112 +44,66 @@ type HistorialEstado = {
   observaciones?: string;
 };
 
+type GetSeguimientoLeadItem = {
+  id_Lead: number;
+  fecha_Registro_Lead: string;
+  numero_De_Contacto: string;
+  cliente: string | null;
+  medio_Registro_lead: string;
+  asesor: string;
+  campana: string;
+  estatus_Lead: string;
+  codigo_Lead?: string;
+};
+
 const CAMPANIAS = [
-  { value: "black-friday-2025", label: "Black Friday 2025" },
-  { value: "cyber-monday", label: "Cyber Monday" },
-  { value: "navidad-2025", label: "Navidad 2025" },
+  { id: 1, value: "Campaña Navideña 2025", label: "Campaña Navideña 2025" },
+  { id: 2, value: "Black Friday Colágeno", label: "Black Friday Colágeno" },
+  { id: 3, value: "Black Friday General", label: "Black Friday General" },
+  { id: 4, value: "Campaña Colágeno", label: "Campaña Colágeno" },
+  { id: 5, value: "Campaña Kalmapross", label: "Campaña Kalmapross" },
+  { id: 6, value: "Campaña Tocosh", label: "Campaña Tocosh" },
+  { id: 7, value: "Reorden Septiembre", label: "Reorden Septiembre" },
 ];
 
 const ASESORES = [
-  { value: "carlos-mendoza", label: "Carlos Mendoza" },
-  { value: "maria-lopez", label: "María López" },
-  { value: "pedro-ramos", label: "Pedro Ramos" },
+  { id: 8, value: "ELMER KENNETH RUIZ MINAYA", label: "ELMER KENNETH RUIZ MINAYA" },
+  { id: 9, value: "ROCIO MILAGROS LLORENTE NORIEGA", label: "ROCIO MILAGROS LLORENTE NORIEGA" },
+  { id: 10, value: "JORDAN ANDRE BACA QUINTANA", label: "JORDAN ANDRE BACA QUINTANA" },
+  { id: 11, value: "LINDA CAROLINA CONDORI GUTIERREZ", label: "LINDA CAROLINA CONDORI GUTIERREZ" },
+  { id: 12, value: "SAMUEL ALEX FERNANDEZ HUACHACA", label: "SAMUEL ALEX FERNANDEZ HUACHACA" },
+  { id: 13, value: "HECTOR  CONCA REATEGUI", label: "HECTOR  CONCA REATEGUI" },
+  { id: 14, value: "JAIRO  TAMAYO VIDAL", label: "JAIRO  TAMAYO VIDAL" },
+  { id: 15, value: "GERALDINE INGRID PANIZO CASTAÑEDA", label: "GERALDINE INGRID PANIZO CASTAÑEDA" },
+  { id: 16, value: "JONATHAN FRANCISCO CAVERO TORERO", label: "JONATHAN FRANCISCO CAVERO TORERO" },
+];
+
+const ESTADOS_LEAD = [
+  { id: 1, value: "Nuevo", label: "Nuevo" },
+  { id: 2, value: "Agendado", label: "Agendado" },
+  { id: 3, value: "En Conversación", label: "En Conversación" },
+  { id: 4, value: "Interesado", label: "Interesado" },
+  { id: 5, value: "Oferta Enviada", label: "Oferta Enviada" },
+  { id: 6, value: "Cierre pendiente", label: "Cierre pendiente" },
+  { id: 7, value: "Afiliación SNN", label: "Afiliación SNN" },
+  { id: 8, value: "Venta", label: "Venta" },
+  { id: 9, value: "No Venta", label: "No Venta" },
 ];
 
 const ESTADOS_LEAD_FILTRO = [
-  { value: "Nuevo", label: "Nuevo" },
-  { value: "Agendado", label: "Agendado" },
-  { value: "En conversación", label: "En conversación" },
-  { value: "Interesado", label: "Interesado" },
-  { value: "Oferta enviada", label: "Oferta enviada" },
-  { value: "Cierre pendiente", label: "Cierre pendiente" },
-  { value: "Afiliación SNN", label: "Afiliación SNN" },
-  { value: "No Venta", label: "No Venta" },
-  { value: "Venta", label: "Venta" },
+  ...ESTADOS_LEAD
 ];
 
-const ESTADOS_LEAD_MODAL = [
-  { value: "Nuevo", label: "Nuevo" },
-  { value: "Agendado", label: "Agendado" },
-  { value: "En conversación", label: "En conversación" },
-  { value: "Interesado", label: "Interesado" },
-  { value: "Oferta enviada", label: "Oferta enviada" },
-  { value: "Cierre pendiente", label: "Cierre pendiente" },
-  { value: "Afiliación SNN", label: "Afiliación SNN" },
-  { value: "No Venta", label: "No Venta" },
-];
+const ESTADOS_LEAD_MODAL = ESTADOS_LEAD.filter((e) => e.id !== 8);
 
 const ESTATUS_ESPECIFICO_NO_VENTA = [
-  "No responde",
-  "No interesado",
-  "Sin presupuesto",
-  "Spam",
-  "Black List",
-  "ATC - Post Venta",
-  "ATC - Reclamo",
-];
-
-const LEADS_BASE: Lead[] = [
-  {
-    id: 1,
-    codigo: "LEAD001",
-    fechaRegistro: "2025-11-15",
-    numeroContacto: "51949778250",
-    clienteVinculado: "Juan Pérez García",
-    medioRegistro: "Web",
-    asesor: "Carlos Mendoza",
-    supervisor: "Black Friday Supervisor",
-    campania: "Black Friday 2025",
-    estadoLead: "Venta",
-  },
-  {
-    id: 2,
-    codigo: "LEAD045",
-    fechaRegistro: "2025-11-18",
-    numeroContacto: "51949778250",
-    clienteVinculado: "Juan Pérez García",
-    medioRegistro: "Teléfono",
-    asesor: "María López",
-    supervisor: "Cyber Monday Supervisor",
-    campania: "Cyber Monday",
-    estadoLead: "Cierre pendiente",
-  },
-  {
-    id: 3,
-    codigo: "LEAD089",
-    fechaRegistro: "2025-11-14",
-    numeroContacto: "51949778250",
-    clienteVinculado: "María Pérez López",
-    medioRegistro: "Redes Sociales",
-    asesor: "Pedro Ramos",
-    supervisor: "Navidad Supervisor",
-    campania: "Navidad 2025",
-    estadoLead: "Interesado",
-  },
-  {
-    id: 4,
-    codigo: "LEAD120",
-    fechaRegistro: "2025-11-19",
-    numeroContacto: "51987654321",
-    clienteVinculado: "Roberto Sánchez",
-    medioRegistro: "Presencial",
-    asesor: "Carlos Mendoza",
-    supervisor: "Navidad Supervisor",
-    campania: "Navidad 2025",
-    estadoLead: "Interesado",
-  },
-  {
-    id: 5,
-    codigo: "LEAD156",
-    fechaRegistro: "2025-11-16",
-    numeroContacto: "51912345678",
-    clienteVinculado: "Lucía Morales",
-    medioRegistro: "Email",
-    asesor: "María López",
-    supervisor: "Black Friday Supervisor",
-    campania: "Black Friday 2025",
-    estadoLead: "No Venta",
-  },
+  { id: 1, value: "No responde", label: "No responde" },
+  { id: 2, value: "No interesado", label: "No interesado" },
+  { id: 3, value: "Sin presupuesto", label: "Sin presupuesto" },
+  { id: 4, value: "Spam", label: "Spam" },
+  { id: 5, value: "Black List", label: "Black List" },
+  { id: 6, value: "ATC - Post Venta", label: "ATC - Post Venta" },
+  { id: 7, value: "ATC - Reclamo", label: "ATC - Reclamo" },
 ];
 
 const PAGE_SIZE = 5;
@@ -173,9 +124,7 @@ function formatFechaHora(iso: string) {
 
 function getTodayIso() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
-  ).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function getFirstDayOfMonthIso() {
@@ -188,7 +137,11 @@ function getEmailFromLead(lead: Lead) {
 }
 
 export default function SeguimientoLead() {
-  const [leads, setLeads] = useState<Lead[]>(LEADS_BASE);
+  const navigate = useNavigate();
+
+  const userLs = localStorage.getItem("sn_user");
+
+  const [leads, setLeads] = useState<Lead[]>([]);
 
   const [fechaDesde, setFechaDesde] = useState(getFirstDayOfMonthIso());
   const [fechaHasta, setFechaHasta] = useState(getTodayIso());
@@ -219,7 +172,79 @@ export default function SeguimientoLead() {
   // Para Modal CONFIRMACIÓN GUARDAR
   const [modalConfirmOpen, setModalConfirmOpen] = useState(false);
 
-  // Para Toast (mismo patrón que CrearLead)
+  // Para modal de confirmación de TRANSFERENCIA
+  const [modalConfirmTransferOpen, setModalConfirmTransferOpen] = useState(false);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [totalLeads, setTotalLeads] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const irACrearPedido = (lead: Lead) => {
+    // El estado SOLO existe durante esta navegación específica
+    navigate('/pedidos/crear', {
+      state: {
+        idLead: lead.id.toString(),
+        numeroContacto: lead.numeroContacto
+      }
+    });
+  };
+
+  const formatearFechaDMY = (fechaISO: string) => {
+    const [year, month, day] = fechaISO.split("-");
+    return `${day}/${month}/${year}`;
+  };
+
+  const buildUpdateBody = ({
+    leadEnEdicion,
+    id_Estatus_Lead,
+    detalleEstado,
+    idUsuario,
+    esAgendado,
+    fechaPactada,
+    horaPactada,
+    esNoVenta,
+    estatusEspecifico,
+    observaciones,
+  }: any) => {
+
+    const base: any = {
+      id_Lead: leadEnEdicion.id,
+      id_Estatus_Lead,
+      detalle_del_Estado: detalleEstado,
+      id_Usuario_Registro_Historico_Estado_Lead: idUsuario,
+      requestInsertHistoricoEstadoLeadAgendado: null,
+      requestInsertHistoricoEstadoLeadNoVenta: null,
+    };
+
+    if (esAgendado) {
+      base.requestInsertHistoricoEstadoLeadAgendado = {
+        fecha_Pactada: formatearFechaDMY(fechaPactada),
+        hora_Pactada: horaPactada,
+        id_Usuario_Registro_Historico_Estado_Lead_Agendado: idUsuario,
+      };
+    }
+
+    if (esNoVenta) {
+      base.requestInsertHistoricoEstadoLeadNoVenta = {
+        estatus_Especifico: estatusEspecifico,
+        observaciones: observaciones,
+        id_Usuario_Registro_Historico_Estado_Lead_No_Venta: idUsuario,
+      };
+    }
+
+    return base;
+  };
+
+  const buildTransferBody = (idsLead: number[], idAsesorDestino: number, idUsuario: number) => {
+    return {
+      id_Lead: idsLead,
+      requestDatosUsuarioUpdateHistoricoAsesorLead: {
+        id_Asesor_Nuevo: idAsesorDestino,
+        id_Usuario_Registro_Historico_Asesor_Lead: idUsuario,
+      }
+    };
+  };
+
   const [toastMsg, setToastMsg] = useState<{
     msg: string;
     type: "error" | "success";
@@ -231,23 +256,241 @@ export default function SeguimientoLead() {
   };
 
   // Historial por lead
-  const [historialPorLead, setHistorialPorLead] = useState<
-    Record<number, HistorialEstado[]>
-  >(() => {
-    const now = new Date().toISOString();
-    const inicial: Record<number, HistorialEstado[]> = {};
-    LEADS_BASE.forEach((lead) => {
-      inicial[lead.id] = [
-        {
-          estado: lead.estadoLead,
-          fecha: now,
-          usuario: USUARIO_LOGUEADO.nombre,
-          detalle: "",
-        },
-      ];
-    });
-    return inicial;
-  });
+  const [historialPorLead, setHistorialPorLead] = useState<Record<number, HistorialEstado[]>>({});
+
+  const mapItemToLead = (item: GetSeguimientoLeadItem): Lead => {
+    let fechaRegistro = "";
+    if (item.fecha_Registro_Lead) {
+      const d = new Date(item.fecha_Registro_Lead);
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        fechaRegistro = `${yyyy}-${mm}-${dd}`;
+      }
+    }
+
+    return {
+      id: item.id_Lead,
+      codigo: item.codigo_Lead || `${item.id_Lead}`,
+      fechaRegistro,
+      numeroContacto: item.numero_De_Contacto,
+      clienteVinculado: item.cliente || "",
+      medioRegistro: item.medio_Registro_lead,
+      asesor: item.asesor,
+      supervisor: "",
+      campania: item.campana,
+      estadoLead: item.estatus_Lead as LeadEstado | string,
+    };
+  };
+
+  // =========================
+  // VERSIÓN ACTUAL (usa NUMBER)
+  // =========================
+
+  const cargarLeads = async (page: number) => {
+    try {
+      setIsLoading(true);
+      setSelectedIds([]);
+
+      const fechaInicioIso = new Date(`${fechaDesde}T00:00:00`).toISOString();
+      const fechaFinIso = new Date(`${fechaHasta}T23:59:59`).toISOString();
+
+
+      // ============================
+      // 1. CAMPAÑAS → arrays (para el futuro)
+      // ============================
+      const campaniasIdList = campaniasSeleccionadas
+        .map(v => CAMPANIAS.find(c => c.value === v)?.id)
+        .filter((id): id is number => Boolean(id));
+
+      const campaniaId = campaniasIdList[0] || 0; // SOLO PARA SERVICIO ACTUAL
+
+
+      // ============================
+      // 2. ASESORES → arrays (para el futuro)
+      // ============================
+      const asesoresIdList = asesoresSeleccionados
+        .map(v => ASESORES.find(a => a.value === v)?.id)
+        .filter((id): id is number => Boolean(id));
+
+      let idAsesorActual = 0;
+
+      if (userLs && JSON.parse(userLs).id_Tipo_Usuario === 8) {
+        // Asesor logueado solo puede verse a sí mismo
+        idAsesorActual = JSON.parse(userLs).id_Usuario;
+      } else {
+        // Supervisor/admin filtra por 1 (limitación actual)
+        idAsesorActual = asesoresIdList[0] || 0;
+      }
+
+
+      // ============================
+      // 3. ESTADOS → arrays (para el futuro)
+      // ============================
+      const estadosIdList = estadosSeleccionados
+        .map(v => ESTADOS_LEAD_FILTRO.find(e => e.value === v)?.id)
+        .filter((id): id is number => Boolean(id));
+
+      const estadoId = estadosIdList[0] || 0; // SOLO PARA SERVICIO ACTUAL
+
+
+      // ============================
+      // 4. Console.log → SIEMPRE ARRAYS
+      // ============================
+      console.log({
+        number: page,
+        size: PAGE_SIZE,
+        fechaInicio: fechaInicioIso,
+        fechaFin: fechaFinIso,
+        idCampanas: campaniasIdList,
+        idAsesores: asesoresIdList,
+        idEstados: estadosIdList
+      });
+
+
+      // ============================
+      // 5. Llamado al servicio ACTUAL
+      // ============================
+      const res = await LeadService.getSeguimientoLead({
+        number: page,
+        size: PAGE_SIZE,
+        fechaInicio: fechaInicioIso,
+        fechaFin: fechaFinIso,
+        idCampana: campaniaId,      // NUMBER
+        idAsesorActual: idAsesorActual, // NUMBER
+        idEstatusLead: estadoId     // NUMBER
+      });
+
+
+      // ============================
+      // Procesamiento de resultados
+      // ============================
+      const data = res.data || {};
+      const lista: GetSeguimientoLeadItem[] = Array.isArray(data.seguimientoLead)
+        ? data.seguimientoLead
+        : [];
+
+      const mapped = lista.map(mapItemToLead);
+
+      setLeads(mapped);
+      setCurrentPage(data.page || page || 1);
+      setTotalPages(data.totalPages || 1);
+
+      const totalReg = data.totalRegisters || data.totalRecords || mapped.length;
+      setTotalLeads(totalReg);
+
+    } catch (error) {
+      console.error(error);
+      showToast("Error al obtener los leads.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // =========================
+  // VERSIÓN FUTURA (usa ARRAYS)
+  // =========================
+
+  // const cargarLeads = async (page: number) => {
+  //   try {
+  //     setIsLoading(true);
+  //     setSelectedIds([]);
+
+  //     const fechaInicioIso = new Date(`${fechaDesde}T00:00:00`).toISOString();
+  //     const fechaFinIso = new Date(`${fechaHasta}T23:59:59`).toISOString();
+
+
+  //     // ============================
+  //     // 1. CAMPAÑAS → arrays reales
+  //     // ============================
+  //     const campaniasIdList = campaniasSeleccionadas
+  //       .map(v => CAMPANIAS.find(c => c.value === v)?.id)
+  //       .filter((id): id is number => Boolean(id));
+
+
+  //     // ============================
+  //     // 2. ASESORES → arrays reales
+  //     // ============================
+  //     const asesoresIdList = asesoresSeleccionados
+  //       .map(v => ASESORES.find(a => a.value === v)?.id)
+  //       .filter((id): id is number => Boolean(id));
+
+  //     let idAsesores: number[] = [];
+
+  //     if (userLs && JSON.parse(userLs).id_Tipo_Usuario === 8) {
+  //       // Asesor logueado → no puede filtrar otros asesores
+  //       idAsesores = [JSON.parse(userLs).id_Usuario];
+  //     } else {
+  //       // Supervisor/admin → lista completa seleccionada
+  //       idAsesores = asesoresIdList;
+  //     }
+
+
+  //     // ============================
+  //     // 3. ESTADOS → arrays reales
+  //     // ============================
+  //     const estadosIdList = estadosSeleccionados
+  //       .map(v => ESTADOS_LEAD_FILTRO.find(e => e.value === v)?.id)
+  //       .filter((id): id is number => Boolean(id));
+
+
+  //     // ============================
+  //     // 4. Console.log → ARRAYS
+  //     // ============================
+  //     console.log({
+  //       number: page,
+  //       size: PAGE_SIZE,
+  //       fechaInicio: fechaInicioIso,
+  //       fechaFin: fechaFinIso,
+  //       idCampanas: campaniasIdList,
+  //       idAsesores: idAsesores,
+  //       idEstados: estadosIdList
+  //     });
+
+
+  //     // ============================
+  //     // 5. Llamado al servicio FUTURO (con ARRAYS)
+  //     // ============================
+  //     const res = await LeadService.getSeguimientoLead({
+  //       number: page,
+  //       size: PAGE_SIZE,
+  //       fechaInicio: fechaInicioIso,
+  //       fechaFin: fechaFinIso,
+  //       idCampanas: campaniasIdList,   // ARRAY
+  //       idAsesores: idAsesores,        // ARRAY
+  //       idEstados: estadosIdList       // ARRAY
+  //     });
+
+
+  //     // ============================
+  //     // Procesamiento de resultados
+  //     // ============================
+  //     const data = res.data || {};
+  //     const lista: GetSeguimientoLeadItem[] = Array.isArray(data.seguimientoLead)
+  //       ? data.seguimientoLead
+  //       : [];
+
+  //     const mapped = lista.map(mapItemToLead);
+
+  //     setLeads(mapped);
+  //     setCurrentPage(data.page || page || 1);
+  //     setTotalPages(data.totalPages || 1);
+
+  //     const totalReg = data.totalRegisters || data.totalRecords || mapped.length;
+  //     setTotalLeads(totalReg);
+
+  //   } catch (error) {
+  //     console.error(error);
+  //     showToast("Error al obtener los leads.", "error");
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
+  const handleFiltrarClick = () => {
+    cargarLeads(1);
+  };
 
   const handleLimpiarFiltros = () => {
     setFechaDesde(getFirstDayOfMonthIso());
@@ -255,57 +498,16 @@ export default function SeguimientoLead() {
     setCampaniasSeleccionadas([]);
     setAsesoresSeleccionados([]);
     setEstadosSeleccionados([]);
+    setCurrentPage(1);
+    cargarLeads(1);
   };
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [fechaDesde, fechaHasta, campaniasSeleccionadas, asesoresSeleccionados, estadosSeleccionados]);
+    cargarLeads(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const leadsFiltrados = useMemo(() => {
-    return leads.filter((lead) => {
-      const fechaLead = new Date(lead.fechaRegistro);
-      const desde = fechaDesde ? new Date(fechaDesde) : null;
-      const hasta = fechaHasta ? new Date(fechaHasta) : null;
-
-      const coincideFecha =
-        (!desde || fechaLead >= desde) && (!hasta || fechaLead <= hasta);
-
-      const coincideCampania =
-        campaniasSeleccionadas.length === 0 ||
-        campaniasSeleccionadas.some((c) =>
-          lead.campania.toLowerCase().includes(
-            CAMPANIAS.find((opt) => opt.value === c)?.label.toLowerCase() || ""
-          )
-        );
-
-      const coincideAsesor =
-        asesoresSeleccionados.length === 0 ||
-        asesoresSeleccionados.some((a) =>
-          lead.asesor
-            .toLowerCase()
-            .includes(
-              ASESORES.find((opt) => opt.value === a)?.label.toLowerCase() || ""
-            )
-        );
-
-      const coincideEstado =
-        estadosSeleccionados.length === 0 || estadosSeleccionados.includes(lead.estadoLead);
-
-      return coincideFecha && coincideCampania && coincideAsesor && coincideEstado;
-    });
-  }, [
-    leads,
-    fechaDesde,
-    fechaHasta,
-    campaniasSeleccionadas,
-    asesoresSeleccionados,
-    estadosSeleccionados,
-  ]);
-
-  const totalLeads = leadsFiltrados.length;
-  const totalPages = Math.max(1, Math.ceil(totalLeads / PAGE_SIZE));
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const leadsPaginados = leadsFiltrados.slice(startIndex, startIndex + PAGE_SIZE);
+  const leadsPaginados = useMemo(() => leads, [leads]);
 
   const toggleSelectAll = () => {
     const idsPagina = leadsPaginados.map((l) => l.id);
@@ -314,7 +516,7 @@ export default function SeguimientoLead() {
     if (allSelected) {
       setSelectedIds((prev) => prev.filter((id) => !idsPagina.includes(id)));
     } else {
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...idsPagina])));
+      setSelectedIds((prev) => [...new Set([...prev, ...idsPagina])]);
     }
   };
 
@@ -326,19 +528,29 @@ export default function SeguimientoLead() {
     }
   };
 
-  let asesoresActuales: string[] = [];
+  const totalSeleccionados = selectedIds.length;
 
-  if (USUARIO_LOGUEADO.rol === "supervisor") {
+  let asesoresActuales: string[] = [];
+  if (userLs && JSON.parse(userLs).id_Tipo_Usuario !== 8) {//si el que se logueo es distinto a asesor
     asesoresActuales = Array.from(
       new Set(leads.filter((l) => selectedIds.includes(l.id)).map((l) => l.asesor))
     );
   } else {
-    asesoresActuales = [USUARIO_LOGUEADO.nombre];
+    asesoresActuales = [userLs && JSON.parse(userLs).nombres];
   }
 
   const abrirModalActualizar = (lead: Lead) => {
+    const estadoDeTabla = lead.estadoLead; // texto: "Agendado", "No Venta", etc.
+
+    // buscar ID a partir del label
+    const estadoObj = ESTADOS_LEAD_MODAL.find(
+      (e) => e.label === estadoDeTabla
+    ) || null;
+
+    // si lo encontró, el id es estadoObj.value
+    setEstadoSeleccionado(estadoObj ? (estadoObj.value as LeadEstado) : "");
+
     setLeadEnEdicion(lead);
-    setEstadoSeleccionado(lead.estadoLead);
     setDetalleEstado("");
     setFechaPactada("");
     setHoraPactada("");
@@ -346,6 +558,38 @@ export default function SeguimientoLead() {
     setObservaciones("");
     setModalActualizarOpen(true);
   };
+
+  useEffect(() => {
+    const fetchHistorial = async () => {
+      if (!modalActualizarOpen || !leadEnEdicion) return;
+
+      const res = await LeadService.getDetalleActualizarEstadoLead({
+        id_Lead: leadEnEdicion.id,
+      });
+
+      const historial = res?.data?.getHistoricoEstadoLeads || [];
+
+      const mapped = historial.map((x: any) => ({
+        estado: x.estatus_Lead,
+        fecha: x.fecha_Registro_Historico_Estado_Lead,
+        usuario: x.usuario,
+        detalle: x.detalle_del_Estado,
+        fechaPactada: x.getHistoricoEstadoLeadAgendado?.fecha_Pactada || "",
+        horaPactada: x.getHistoricoEstadoLeadAgendado?.hora_Pactada || "",
+        estatusEspecifico:
+          x.getHistoricoEstadoLeadNoVenta?.estatus_Especifico || "",
+        observaciones:
+          x.getHistoricoEstadoLeadNoVenta?.observaciones || "",
+      }));
+
+      setHistorialPorLead((prev) => ({
+        ...prev,
+        [leadEnEdicion.id]: mapped,
+      }));
+    };
+
+    fetchHistorial();
+  }, [modalActualizarOpen, leadEnEdicion]);
 
   const cerrarModalActualizar = () => {
     setModalActualizarOpen(false);
@@ -358,60 +602,6 @@ export default function SeguimientoLead() {
     setObservaciones("");
   };
 
-  const guardarActualizacion = () => {
-    if (!leadEnEdicion || !estadoSeleccionado) {
-      cerrarModalActualizar();
-      return;
-    }
-
-    const ahoraIso = new Date().toISOString();
-
-    const nuevoHistorial: HistorialEstado = {
-      estado: estadoSeleccionado,
-      fecha: ahoraIso,
-      usuario: USUARIO_LOGUEADO.nombre,
-      detalle: detalleEstado,
-      fechaPactada: estadoSeleccionado === "Agendado" ? fechaPactada || undefined : undefined,
-      horaPactada: estadoSeleccionado === "Agendado" ? horaPactada || undefined : undefined,
-      estatusEspecifico:
-        estadoSeleccionado === "No Venta" ? estatusEspecifico || undefined : undefined,
-      observaciones:
-        estadoSeleccionado === "No Venta" ? observaciones || undefined : undefined,
-    };
-
-    setHistorialPorLead((prev) => {
-      const anterior = prev[leadEnEdicion.id] || [];
-      return {
-        ...prev,
-        [leadEnEdicion.id]: [...anterior, nuevoHistorial],
-      };
-    });
-
-    setLeads((prev) =>
-      prev.map((l) =>
-        l.id === leadEnEdicion.id ? { ...l, estadoLead: estadoSeleccionado as LeadEstado } : l
-      )
-    );
-
-    cerrarModalActualizar();
-  };
-
-  const esAgendado = estadoSeleccionado === "Agendado";
-  const esNoVenta = estadoSeleccionado === "No Venta";
-  const soloDetalleEstados: LeadEstado[] = [
-    "En conversación",
-    "Interesado",
-    "Oferta enviada",
-    "Cierre pendiente",
-    "Afiliación SNN",
-  ];
-  const muestraSoloDetalle = soloDetalleEstados.includes(estadoSeleccionado as LeadEstado);
-
-  const historialDelLeadActual =
-    leadEnEdicion && historialPorLead[leadEnEdicion.id]
-      ? historialPorLead[leadEnEdicion.id]
-      : [];
-
   const abrirModalInfo = (lead: Lead) => {
     setLeadInfoSeleccionado(lead);
     setModalInfoOpen(true);
@@ -422,41 +612,195 @@ export default function SeguimientoLead() {
     setLeadInfoSeleccionado(null);
   };
 
-  // Validar y luego abrir modal de confirmación
-  const handleClickGuardar = () => {
-    if (!leadEnEdicion || !estadoSeleccionado) {
-      showToast("Debe seleccionar un estado para el lead.", "error");
+  const abrirModalTransferir = () => {
+    if (selectedIds.length === 0) {
+      showToast("Debe seleccionar al menos un lead para transferir.", "error");
+      return;
+    }
+    setModalTransferirOpen(true);
+  };
+
+  const cerrarModalTransferir = () => {
+    setModalTransferirOpen(false);
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    cargarLeads(page);
+  };
+
+  const esAgendado = estadoSeleccionado === "Agendado";
+  const esNoVenta = estadoSeleccionado === "No Venta";
+  const soloDetalleEstados: LeadEstado[] = [
+    "En Conversación",
+    "Interesado",
+    "Oferta enviada",
+    "Cierre pendiente",
+    "Afiliación SNN",
+  ];
+
+  const historialDelLeadActual =
+    leadEnEdicion && historialPorLead[leadEnEdicion.id]
+      ? historialPorLead[leadEnEdicion.id]
+      : [];
+
+  const handleGuardarClick = () => {
+    if (!leadEnEdicion) return;
+
+    if (!estadoSeleccionado) {
+      showToast("Debe seleccionar un estado.", "error");
       return;
     }
 
     if (esAgendado && (!fechaPactada || !horaPactada)) {
-      showToast("Debe ingresar la fecha y hora pactada para un estado Agendado.", "error");
+      showToast("Debe indicar fecha y hora pactadas.", "error");
       return;
     }
 
     if (esNoVenta && !estatusEspecifico) {
-      showToast(
-        "Debe seleccionar un Estatus Específico cuando el estado es No Venta.",
-        "error"
-      );
+      showToast("Debe seleccionar un estatus específico.", "error");
+      return;
+    }
+
+    if (!detalleEstado.trim()) {
+      showToast("Debe ingresar un detalle del estado.", "error");
       return;
     }
 
     setModalConfirmOpen(true);
   };
 
-  const confirmarGuardar = () => {
-    guardarActualizacion();
-    setModalConfirmOpen(false);
-    showToast("Estado del lead actualizado correctamente.", "success");
+  const confirmarGuardar = async () => {
+    if (!leadEnEdicion) return;
+
+    let idUsuario = 0;
+
+    if (userLs) {
+      try {
+        idUsuario = JSON.parse(userLs).id_Usuario || 0;
+      } catch {
+        idUsuario = 0;
+      }
+    }
+
+    const id_Estatus_Lead =
+      ESTADOS_LEAD.find((e) => e.value === estadoSeleccionado)?.id || 0;
+
+    const body = buildUpdateBody({
+      leadEnEdicion,
+      id_Estatus_Lead,
+      detalleEstado,
+      idUsuario,
+      esAgendado,
+      fechaPactada,
+      horaPactada,
+      esNoVenta,
+      estatusEspecifico,
+      observaciones,
+    });
+    // console.log(body);
+    try {
+      await LeadService.updateHistoricoEstadoLead(body);
+
+      showToast("Estado actualizado correctamente.", "success");
+
+      cargarLeads(currentPage);
+
+      setModalConfirmOpen(false);
+      setModalActualizarOpen(false);
+
+    } catch (err) {
+      console.error(err);
+      showToast("Ocurrió un error al actualizar el estado.", "error");
+    }
   };
 
   const cancelarConfirmacion = () => {
     setModalConfirmOpen(false);
   };
 
+  const ultimaActualizacion =
+    leadInfoSeleccionado && historialPorLead[leadInfoSeleccionado.id]
+      ? formatFechaHora(
+        historialPorLead[leadInfoSeleccionado.id][
+          historialPorLead[leadInfoSeleccionado.id].length - 1
+        ].fecha
+      )
+      : leadInfoSeleccionado
+        ? formatFecha(leadInfoSeleccionado.fechaRegistro)
+        : "";
+
+  const confirmarTransferencia = async () => {
+    if (selectedIds.length === 0) {
+      showToast("No hay leads seleccionados.", "error");
+      return;
+    }
+
+    if (!asesorDestino) {
+      showToast("Seleccione un asesor destino.", "error");
+      return;
+    }
+
+    let idUsuario = 0;
+
+    if (userLs) {
+      try {
+        idUsuario = JSON.parse(userLs).id_Usuario || 0;
+      } catch {
+        idUsuario = 0;
+      }
+    }
+
+    const asesorDestinoObj = ASESORES.find(a => a.value === asesorDestino);
+
+    if (!asesorDestinoObj) {
+      showToast("El asesor destino no es válido.", "error");
+      return;
+    }
+
+    const idAsesorDestino = asesorDestinoObj.id;
+
+    if (idAsesorDestino === 0) {
+      showToast("El asesor destino no es válido.", "error");
+      return;
+    }
+
+    const body = buildTransferBody(selectedIds, idAsesorDestino, idUsuario);
+
+    try {
+      await LeadService.transferirLeads(body);
+
+      if (userLs && JSON.parse(userLs).id_Tipo_Usuario !== 3) {
+        setLeads(prev =>
+          prev.map(l =>
+            selectedIds.includes(l.id)
+              ? { ...l, asesor: asesorDestinoObj.value }
+              : l
+          )
+        );
+      }
+
+      showToast("Leads transferidos correctamente.", "success");
+
+      setModalTransferirOpen(false);
+      setSelectedIds([]);
+
+      cargarLeads(currentPage);
+
+    } catch (error) {
+      console.error(error);
+      showToast("Ocurrió un error al transferir los leads.", "error");
+    }
+  };
+
+  const confirmarTransferenciaFinal = async () => {
+    setModalConfirmTransferOpen(false);
+    await confirmarTransferencia();
+  };
+
   return (
-    <AppLayout title="Seguimiento Lead">
+    <AppLayout title="Seguimiento de Lead">
       {toastMsg && (
         <Toast
           message={toastMsg.msg}
@@ -474,23 +818,33 @@ export default function SeguimientoLead() {
         <Card>
           <div className="p-6 border-b border-gray-300 flex items-center justify-between gap-2">
             <div className="flex gap-2 items-center">
-              <ListFilter className="w-5 h-5 text-[#006341]" />
-              <span className="text-[#006341] font-medium">Lista de Leads</span>
+              <div className="h-8 w-8 rounded-full bg-[#E5F8F0] flex items-center justify-center">
+                <ListFilter className="w-5 h-5 text-[#006341]" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-800">
+                  Seguimiento de Lead
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Revisa el estado de tus leads, actualiza su gestión y realiza ventas.
+                </p>
+              </div>
             </div>
-            {selectedIds.length > 0 && (
+
+            {totalSeleccionados > 0 && (
               <Button
                 className="bg-emerald-800 hover:bg-emerald-700 text-white"
-                onClick={() => setModalTransferirOpen(true)}
+                onClick={abrirModalTransferir}
               >
-                Transferir Leads: {selectedIds.length}
+                Transferir Leads: {totalSeleccionados}
               </Button>
             )}
           </div>
 
           <div className="space-y-5 bg-white px-6 py-5">
-            <div className="grid items-end gap-4 rounded-2xl bg-[#F9FAFB] p-4 md:grid-cols-5 lg:grid-cols-6">
+            <div className="grid items-end gap-4 rounded-2xl bg-[#F7F8FA] p-4 md:grid-cols-5 lg:grid-cols-6">
               <div className="space-y-1">
-                <label className="text-sm font-medium">Fecha Desde</label>
+                <label className="text-sm font-medium">Fecha desde</label>
                 <Input
                   type="date"
                   value={fechaDesde}
@@ -499,7 +853,7 @@ export default function SeguimientoLead() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm font-medium">Fecha Hasta</label>
+                <label className="text-sm font-medium">Fecha hasta</label>
                 <Input
                   type="date"
                   value={fechaHasta}
@@ -513,6 +867,8 @@ export default function SeguimientoLead() {
                   isMulti
                   classNamePrefix="rs"
                   options={CAMPANIAS}
+                  getOptionValue={(opt) => `${opt.value}-${opt.id}`}
+                  getOptionLabel={(opt) => opt.label}
                   value={CAMPANIAS.filter((c) =>
                     campaniasSeleccionadas.includes(c.value)
                   )}
@@ -527,7 +883,6 @@ export default function SeguimientoLead() {
                       ...base,
                       zIndex: 9999,
                     }),
-
                     control: (base, state) => ({
                       ...base,
                       backgroundColor: "white",
@@ -540,19 +895,16 @@ export default function SeguimientoLead() {
                       },
                       fontSize: "14px",
                     }),
-
                     placeholder: (base) => ({
                       ...base,
                       fontSize: "14px",
                       color: "#6b7280",
                     }),
-
                     singleValue: (base) => ({
                       ...base,
                       fontSize: "14px",
                       color: "#374151",
                     }),
-
                     menu: (base) => ({
                       ...base,
                       marginTop: 4,
@@ -561,12 +913,10 @@ export default function SeguimientoLead() {
                       boxShadow:
                         "0 4px 10px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.06)",
                     }),
-
                     menuList: (base) => ({
                       ...base,
                       padding: 0,
                     }),
-
                     option: (base, state) => ({
                       ...base,
                       fontSize: "14px",
@@ -579,9 +929,7 @@ export default function SeguimientoLead() {
                       color: "#111827",
                       cursor: "pointer",
                     }),
-
                     indicatorSeparator: () => ({ display: "none" }),
-
                     dropdownIndicator: (base, state) => ({
                       ...base,
                       color: state.isFocused ? "#16a34a" : "#6b7280",
@@ -591,89 +939,86 @@ export default function SeguimientoLead() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Asesor</label>
-                <ReactSelect
-                  isMulti
-                  classNamePrefix="rs"
-                  options={ASESORES}
-                  value={ASESORES.filter((c) =>
-                    asesoresSeleccionados.includes(c.value)
-                  )}
-                  onChange={(opts) =>
-                    setAsesoresSeleccionados((opts || []).map((o: any) => o.value))
-                  }
-                  placeholder="Seleccione asesores"
-                  menuPortalTarget={document.body}
-                  menuPosition="fixed"
-                  styles={{
-                    menuPortal: (base) => ({
-                      ...base,
-                      zIndex: 9999,
-                    }),
-
-                    control: (base, state) => ({
-                      ...base,
-                      backgroundColor: "white",
-                      borderColor: state.isFocused ? "#16a34a" : "#d1d5db",
-                      boxShadow: state.isFocused ? "0 0 0 1px #16a34a" : "none",
-                      borderRadius: 6,
-                      minHeight: "38px",
-                      "&:hover": {
-                        borderColor: state.isFocused ? "#16a34a" : "#9ca3af",
-                      },
-                      fontSize: "14px",
-                    }),
-
-                    placeholder: (base) => ({
-                      ...base,
-                      fontSize: "14px",
-                      color: "#6b7280",
-                    }),
-
-                    singleValue: (base) => ({
-                      ...base,
-                      fontSize: "14px",
-                      color: "#374151",
-                    }),
-
-                    menu: (base) => ({
-                      ...base,
-                      marginTop: 4,
-                      borderRadius: 6,
-                      overflow: "hidden",
-                      boxShadow:
-                        "0 4px 10px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.06)",
-                    }),
-
-                    menuList: (base) => ({
-                      ...base,
-                      padding: 0,
-                    }),
-
-                    option: (base, state) => ({
-                      ...base,
-                      fontSize: "14px",
-                      padding: "8px 12px",
-                      backgroundColor: state.isSelected
-                        ? "#f3f4f6"
-                        : state.isFocused
-                          ? "#f9fafb"
-                          : "white",
-                      color: "#111827",
-                      cursor: "pointer",
-                    }),
-
-                    indicatorSeparator: () => ({ display: "none" }),
-
-                    dropdownIndicator: (base, state) => ({
-                      ...base,
-                      color: state.isFocused ? "#16a34a" : "#6b7280",
-                      "&:hover": { color: "#16a34a" },
-                    }),
-                  }}
-                />
-              </div>
+              {userLs && JSON.parse(userLs).id_Tipo_Usuario === 8 ?
+                null :
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Asesor</label>
+                  <ReactSelect
+                    isMulti
+                    classNamePrefix="rs"
+                    options={ASESORES}
+                    getOptionValue={(opt) => `${opt.value}-${opt.id}`}
+                    getOptionLabel={(opt) => opt.label}
+                    value={ASESORES.filter((a) =>
+                      asesoresSeleccionados.includes(a.value)
+                    )}
+                    onChange={(opts) =>
+                      setAsesoresSeleccionados((opts || []).map((o: any) => o.value))
+                    }
+                    placeholder="Seleccione asesores"
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
+                    styles={{
+                      menuPortal: (base) => ({
+                        ...base,
+                        zIndex: 9999,
+                      }),
+                      control: (base, state) => ({
+                        ...base,
+                        backgroundColor: "white",
+                        borderColor: state.isFocused ? "#16a34a" : "#d1d5db",
+                        boxShadow: state.isFocused ? "0 0 0 1px #16a34a" : "none",
+                        borderRadius: 6,
+                        minHeight: "38px",
+                        "&:hover": {
+                          borderColor: state.isFocused ? "#16a34a" : "#9ca3af",
+                        },
+                        fontSize: "14px",
+                      }),
+                      placeholder: (base) => ({
+                        ...base,
+                        fontSize: "14px",
+                        color: "#6b7280",
+                      }),
+                      singleValue: (base) => ({
+                        ...base,
+                        fontSize: "14px",
+                        color: "#374151",
+                      }),
+                      menu: (base) => ({
+                        ...base,
+                        marginTop: 4,
+                        borderRadius: 6,
+                        overflow: "hidden",
+                        boxShadow:
+                          "0 4px 10px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.06)",
+                      }),
+                      menuList: (base) => ({
+                        ...base,
+                        padding: 0,
+                      }),
+                      option: (base, state) => ({
+                        ...base,
+                        fontSize: "14px",
+                        padding: "8px 12px",
+                        backgroundColor: state.isSelected
+                          ? "#f3f4f6"
+                          : state.isFocused
+                            ? "#f9fafb"
+                            : "white",
+                        color: "#111827",
+                        cursor: "pointer",
+                      }),
+                      indicatorSeparator: () => ({ display: "none" }),
+                      dropdownIndicator: (base, state) => ({
+                        ...base,
+                        color: state.isFocused ? "#16a34a" : "#6b7280",
+                        "&:hover": { color: "#16a34a" },
+                      }),
+                    }}
+                  />
+                </div>
+              }
 
               <div className="space-y-1">
                 <label className="text-sm font-medium">Estado de Lead</label>
@@ -681,6 +1026,8 @@ export default function SeguimientoLead() {
                   isMulti
                   classNamePrefix="rs"
                   options={ESTADOS_LEAD_FILTRO}
+                  getOptionValue={(opt) => `${opt.value}-${opt.id}`}
+                  getOptionLabel={(opt) => opt.label}
                   value={ESTADOS_LEAD_FILTRO.filter((c) =>
                     estadosSeleccionados.includes(c.value)
                   )}
@@ -695,7 +1042,6 @@ export default function SeguimientoLead() {
                       ...base,
                       zIndex: 9999,
                     }),
-
                     control: (base, state) => ({
                       ...base,
                       backgroundColor: "white",
@@ -708,19 +1054,16 @@ export default function SeguimientoLead() {
                       },
                       fontSize: "14px",
                     }),
-
                     placeholder: (base) => ({
                       ...base,
                       fontSize: "14px",
                       color: "#6b7280",
                     }),
-
                     singleValue: (base) => ({
                       ...base,
                       fontSize: "14px",
                       color: "#374151",
                     }),
-
                     menu: (base) => ({
                       ...base,
                       marginTop: 4,
@@ -729,12 +1072,10 @@ export default function SeguimientoLead() {
                       boxShadow:
                         "0 4px 10px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.06)",
                     }),
-
                     menuList: (base) => ({
                       ...base,
                       padding: 0,
                     }),
-
                     option: (base, state) => ({
                       ...base,
                       fontSize: "14px",
@@ -747,9 +1088,7 @@ export default function SeguimientoLead() {
                       color: "#111827",
                       cursor: "pointer",
                     }),
-
                     indicatorSeparator: () => ({ display: "none" }),
-
                     dropdownIndicator: (base, state) => ({
                       ...base,
                       color: state.isFocused ? "#16a34a" : "#6b7280",
@@ -759,10 +1098,16 @@ export default function SeguimientoLead() {
                 />
               </div>
 
-              <div className="flex justify-start md:justify-end lg:col-span-1">
+              <div className="flex flex-col sm:flex-row justify-start md:justify-end lg:col-span-1 gap-2">
+                <Button
+                  className="w-full sm:w-auto bg-emerald-800 hover:bg-emerald-700 text-white"
+                  onClick={handleFiltrarClick}
+                >
+                  Filtrar
+                </Button>
                 <Button
                   variant="outline"
-                  className="w-full mt-2 md:mt-0"
+                  className="w-full sm:w-auto"
                   onClick={handleLimpiarFiltros}
                 >
                   Limpiar filtros
@@ -772,11 +1117,12 @@ export default function SeguimientoLead() {
 
             <div className="overflow-hidden rounded-lg border">
               <table className="min-w-full text-sm">
-                <thead className="bg-[#F7F8FA] text-gray-600">
-                  <tr>
-                    <th className="px-4 py-2 w-10">
+                <thead className="bg-[#F7F8FA] border-b">
+                  <tr className="text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 w-10">
                       <input
                         type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                         checked={
                           leadsPaginados.length > 0 &&
                           leadsPaginados.every((l) => selectedIds.includes(l.id))
@@ -784,49 +1130,34 @@ export default function SeguimientoLead() {
                         onChange={toggleSelectAll}
                       />
                     </th>
-
-                    <th className="px-4 py-2 text-left font-medium text-black">Lead</th>
-                    <th className="px-4 py-2 text-left font-medium text-black">
-                      Fecha Registro
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium text-black">
-                      Última Actualización
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium text-black">
-                      Número Contacto
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium text-black">
-                      Cliente Vinculado
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium text-black">
-                      Medio Registro
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium text-black">Asesor</th>
-                    <th className="px-4 py-2 text-left font-medium text-black">
-                      Supervisor
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium text-black">
-                      Campaña
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium text-black">
-                      Estado de Lead
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium text-black">Venta</th>
-                    <th className="px-4 py-2 text-left font-medium text-black">
-                      Gestión
-                    </th>
+                    <th className="px-4 py-3 text-left">Lead</th>
+                    <th className="px-4 py-3 text-left">Fecha Registro</th>
+                    <th className="px-4 py-3 text-left">Número Contacto</th>
+                    <th className="px-4 py-3 text-left">Cliente Vinculado</th>
+                    <th className="px-4 py-3 text-left">Medio Registro</th>
+                    <th className="px-4 py-3 text-left">Asesor</th>
+                    <th className="px-4 py-3 text-left">Supervisor</th>
+                    <th className="px-4 py-3 text-left">Campaña</th>
+                    <th className="px-4 py-3 text-left">Estado Lead</th>
+                    <th className="px-4 py-3 text-left">Venta</th>
+                    <th className="px-4 py-3 text-left">Gestión</th>
                   </tr>
                 </thead>
-
                 <tbody>
-                  {leadsPaginados.length === 0 && (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={13} className="px-4 py-6 text-center text-gray-400">
+                        Cargando leads...
+                      </td>
+                    </tr>
+                  ) : leadsPaginados.length === 0 ? (
                     <tr>
                       <td colSpan={13} className="px-4 py-6 text-center text-gray-400">
                         No hay leads para los filtros seleccionados.
                       </td>
                     </tr>
-                  )}
-
+                  ) : (
+                    <>
                   {leadsPaginados.map((lead) => {
                     const estadoColor =
                       lead.estadoLead === "Venta"
@@ -852,6 +1183,7 @@ export default function SeguimientoLead() {
                         <td className="px-4 py-3">
                           <input
                             type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                             checked={selectedIds.includes(lead.id)}
                             onChange={() => toggleSelectOne(lead.id)}
                           />
@@ -859,27 +1191,44 @@ export default function SeguimientoLead() {
 
                         <td className="px-4 py-3">
                           <button
-                            type="button"
-                            className="text-emerald-700 underline hover:text-emerald-900"
                             onClick={() => abrirModalInfo(lead)}
+                            className="text-sm font-semibold text-emerald-700 underline hover:text-emerald-800"
                           >
                             {lead.codigo}
                           </button>
                         </td>
-                        <td className="px-4 py-3">
+
+                        <td className="px-4 py-3 text-xs text-gray-600">
                           {formatFecha(lead.fechaRegistro)}
                         </td>
-                        <td className="px-4 py-3">{ultimaFecha}</td>
-                        <td className="px-4 py-3">{lead.numeroContacto}</td>
-                        <td className="px-4 py-3">{lead.clienteVinculado}</td>
-                        <td className="px-4 py-3">{lead.medioRegistro}</td>
-                        <td className="px-4 py-3">{lead.asesor}</td>
-                        <td className="px-4 py-3">{lead.supervisor}</td>
-                        <td className="px-4 py-3">{lead.campania}</td>
+
+                        <td className="px-4 py-3 text-xs text-gray-800">
+                          {lead.numeroContacto}
+                        </td>
+
+                        <td className="px-4 py-3 text-xs text-gray-800">
+                          {lead.clienteVinculado || "-"}
+                        </td>
+
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          {lead.medioRegistro}
+                        </td>
+
+                        <td className="px-4 py-3 text-xs text-gray-800">
+                          {lead.asesor}
+                        </td>
+
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          {lead.supervisor || "-"}
+                        </td>
+
+                        <td className="px-4 py-3 text-xs text-gray-800">
+                          {lead.campania}
+                        </td>
 
                         <td className="px-4 py-3">
                           <span
-                            className={`px-3 py-1 rounded-md text-xs font-medium text-nowrap ${estadoColor.text}`}
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${estadoColor.text}`}
                             style={{ backgroundColor: estadoColor.bg }}
                           >
                             {lead.estadoLead}
@@ -887,23 +1236,18 @@ export default function SeguimientoLead() {
                         </td>
 
                         <td className="px-4 py-3">
-                          {lead.estadoLead === "Venta" ? (
-                            <Button
-                              variant="outline"
-                              className="flex items-center gap-1 border-[#3B82F6] text-[#2563EB] text-xs font-medium hover:bg-blue-50 h-8"
-                            >
-                              <Eye className="h-4 w-4" />
-                              Ver
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              className="flex items-center gap-1 border-emerald-600 text-emerald-700 text-xs font-medium hover:bg-emerald-50 h-8"
-                            >
-                              <ShoppingCart className="h-4 w-4" />
-                              Venta
-                            </Button>
-                          )}
+                          {(lead.estadoLead !== "Venta" &&
+                            lead.estadoLead !== "No Venta" &&
+                            (!lead.clienteVinculado || lead.clienteVinculado.trim() === "")) && (
+                              <Button
+                                variant="outline"
+                                className="flex items-center gap-1 border-emerald-700 text-emerald-700 text-xs font-medium hover:bg-emerald-50 h-8"
+                                onClick={() => irACrearPedido(lead)}
+                              >
+                                <ShoppingCart className="h-4 w-4" />
+                                Venta
+                              </Button>
+                            )}
                         </td>
 
                         <td className="px-4 py-3">
@@ -912,7 +1256,7 @@ export default function SeguimientoLead() {
                           ) : (
                             <Button
                               variant="outline"
-                              className="flex items-center gap-1 border-emerald-600 text-emerald-700 text-xs font-medium hover:bg-emerald-50 h-8"
+                              className="flex items-center gap-1 border-emerald-700 text-emerald-700 text-xs font-medium hover:bg-emerald-50 h-8"
                               onClick={() => abrirModalActualizar(lead)}
                             >
                               <Pencil className="h-4 w-4" />
@@ -923,6 +1267,8 @@ export default function SeguimientoLead() {
                       </tr>
                     );
                   })}
+                    </>
+                  )}
                 </tbody>
               </table>
 
@@ -932,37 +1278,25 @@ export default function SeguimientoLead() {
                   <span className="font-medium">{totalLeads}</span> leads
                 </div>
 
-                <div className="flex gap-1 items-center">
-                  <Button
-                    variant="outline"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setCurrentPage(currentPage - 1)}
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-2 py-1 rounded border text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white"
+                    onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                   >
                     Anterior
-                  </Button>
-
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`h-7 min-w-[2rem] rounded-md border text-xs ${currentPage === page
-                          ? "border-emerald-600 bg-emerald-50 font-semibold text-emerald-700"
-                          : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-                        }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-
-                  <Button
-                    variant="outline"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setCurrentPage(currentPage + 1)}
+                  </button>
+                  <span>
+                    Página <span className="font-semibold">{currentPage}</span> de{" "}
+                    <span className="font-semibold">{totalPages}</span>
+                  </span>
+                  <button
+                    className="px-2 py-1 rounded border text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white"
+                    onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
                   >
                     Siguiente
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>
@@ -970,58 +1304,61 @@ export default function SeguimientoLead() {
         </Card>
       </div>
 
+      {/* MODAL TRANSFERIR LEADS */}
       {modalTransferirOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-lg rounded-xl shadow-lg p-6 relative">
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6 relative">
             <button
               className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
-              onClick={() => setModalTransferirOpen(false)}
+              onClick={cerrarModalTransferir}
             >
               <X className="h-5 w-5" />
             </button>
 
-            <h2 className="text-xl font-semibold text-gray-800">Transferir Leads</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Transferir Leads</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Está por transferir <b>{selectedIds.length}</b> lead(s)
+              Estás por transferir{" "}
+              <span className="font-semibold">{totalSeleccionados} lead(s)</span>
             </p>
 
             <div className="mt-4">
               <div className="text-sm font-semibold text-gray-700">Asesor Actual</div>
-              <div className="text-sm text-gray-600 mt-1">
-                {asesoresActuales.join(", ")}
-              </div>
+              <div className="text-sm text-gray-600 mt-1">{asesoresActuales.length > 0 ? asesoresActuales.join(", ") : "N/A"}</div>
             </div>
 
-            <div className="mt-4">
-              <div className="text-sm font-semibold text-gray-700">Asesor Destino</div>
+            <div className="mt-4 space-y-2">
+              <label className="text-sm font-semibold text-gray-700">Asesor Destino</label>
               <ReactSelect
+                classNamePrefix="rs"
                 options={ASESORES}
-                placeholder="Seleccione asesor"
+                getOptionValue={(opt) => `${opt.value}-${opt.id}`}
+                getOptionLabel={(opt) => opt.label}
                 value={ASESORES.find((a) => a.value === asesorDestino) || null}
                 onChange={(opt) => setAsesorDestino(opt?.value || "")}
+                placeholder="Seleccione asesor destino"
+                menuPortalTarget={document.body}
+                menuPosition="fixed"
+                styles={{
+                  menuPortal: (base) => ({
+                    ...base,
+                    zIndex: 9999,
+                  }),
+                }}
               />
             </div>
-
-            <div className="mt-4 text-sm text-gray-600">
-              Cantidad de leads seleccionados: <b>{selectedIds.length}</b>
-            </div>
+            <div className="mt-4 text-sm text-gray-600">Cantidad de leads seleccionados: <b>{totalSeleccionados}</b></div>
 
             <div className="mt-6 flex justify-end gap-3">
               <Button
                 variant="outline"
-                onClick={() => setModalTransferirOpen(false)}
+                onClick={cerrarModalTransferir}
               >
                 Cancelar
               </Button>
 
               <Button
+                onClick={() => setModalConfirmTransferOpen(true)}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => {
-                  alert(
-                    `Transferidos ${selectedIds.length} leads al asesor ${asesorDestino}`
-                  );
-                  setModalTransferirOpen(false);
-                }}
               >
                 Transferir
               </Button>
@@ -1031,188 +1368,196 @@ export default function SeguimientoLead() {
       )}
 
       {modalActualizarOpen && leadEnEdicion && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40">
-          <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6 relative">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-40">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-lg p-6 relative">
+            {/* BOTÓN CERRAR */}
             <button
-              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
               onClick={cerrarModalActualizar}
+              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
             >
               <X className="h-5 w-5" />
             </button>
 
+            {/* HEADER */}
             <h2 className="text-xl font-semibold text-gray-800">
               Actualizar Estado del Lead
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              Lead: <span className="font-semibold">{leadEnEdicion.codigo}</span> - Cliente:{" "}
-              <span className="font-semibold">{leadEnEdicion.clienteVinculado}</span>
+              Lead: <span className="font-semibold">{leadEnEdicion.codigo}</span>{" "}
+              - Cliente:{" "}
+              <span className="font-semibold">
+                {leadEnEdicion.clienteVinculado || "Sin nombre"}
+              </span>
             </p>
 
-            <div className="mt-5 border rounded-2xl p-4 bg-[#F9FAFB]">
-              <div className="grid grid-cols-1 gap-4">
+            {/* =======================
+          ESTADO SELECCIONADO
+      ======================= */}
+            <div className="mt-6 space-y-1">
+              <label className="text-sm font-semibold text-gray-800">
+                Estado de Lead
+              </label>
+              <ReactSelect
+                options={ESTADOS_LEAD_MODAL}
+                placeholder="Seleccione estado"
+                getOptionValue={(opt) => `${opt.value}`}
+                getOptionLabel={(opt) => opt.label}
+                value={
+                  estadoSeleccionado
+                    ? ESTADOS_LEAD_MODAL.find((e) => e.value === estadoSeleccionado)
+                    : null
+                }
+                onChange={(opt) => setEstadoSeleccionado((opt?.value as LeadEstado) || "")}
+              />
+            </div>
+
+            {/* =======================
+          CAMPOS SEGÚN ESTADO
+      ======================= */}
+            {estadoSeleccionado === "Agendado" && (
+              <div className="mt-4 grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">
-                    Estado de Lead <span className="text-red-500">*</span>
-                  </label>
-                  <ReactSelect
-                    options={ESTADOS_LEAD_MODAL}
-                    placeholder="Seleccione estado"
-                    value={
-                      estadoSeleccionado
-                        ? ESTADOS_LEAD_MODAL.find((e) => e.value === estadoSeleccionado) ||
-                        null
-                        : null
-                    }
-                    onChange={(opt) =>
-                      setEstadoSeleccionado((opt?.value as LeadEstado) || "")
-                    }
+                  <label className="text-sm font-medium">Fecha Pactada</label>
+                  <Input
+                    type="date"
+                    value={fechaPactada}
+                    onChange={(e) => setFechaPactada(e.target.value)}
                   />
                 </div>
 
-                {esAgendado && (
-                  <>
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium">
-                        Fecha Pactada <span className="text-red-500">*</span>
-                      </label>
-                      <Input
-                        type="date"
-                        value={fechaPactada}
-                        onChange={(e) => setFechaPactada(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium">
-                        Hora Pactada <span className="text-red-500">*</span>
-                      </label>
-                      <Input
-                        type="time"
-                        value={horaPactada}
-                        onChange={(e) => setHoraPactada(e.target.value)}
-                      />
-                    </div>
-                  </>
-                )}
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Hora Pactada</label>
+                  <Input
+                    type="time"
+                    value={horaPactada}
+                    onChange={(e) => setHoraPactada(e.target.value)}
+                  />
+                </div>
               </div>
+            )}
 
-              {(esAgendado || muestraSoloDetalle || esNoVenta) && (
+            {(estadoSeleccionado === "No Venta" ||
+              [
+                "Agendado",
+                "En Conversación",
+                "Interesado",
+                "Oferta Enviada",
+                "Cierre pendiente",
+                "Afiliación SNN"
+              ].includes(estadoSeleccionado)
+            )
+              && (
                 <div className="mt-4 space-y-1">
                   <label className="text-sm font-medium">Detalle de Estado</label>
                   <textarea
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none min-h-[80px]"
                     value={detalleEstado}
                     onChange={(e) => setDetalleEstado(e.target.value)}
-                    placeholder="Describa el contexto o la acción realizada..."
+                    placeholder="Describa la gestión realizada..."
+                    className="w-full p-2 rounded-md border border-gray-300 min-h-[80px] focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
               )}
-            </div>
 
-            {esNoVenta && (
+            {estadoSeleccionado === "No Venta" && (
               <div className="mt-4 border rounded-2xl p-4 bg-[#F9FAFB]">
                 <h3 className="text-sm font-semibold text-gray-800 mb-3">
                   Detalle de No Venta
                 </h3>
 
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">
-                      Estatus Específico <span className="text-red-500">*</span>
-                    </label>
-                    <ReactSelect
-                      options={ESTATUS_ESPECIFICO_NO_VENTA.map((x) => ({
-                        value: x,
-                        label: x,
-                      }))}
-                      placeholder="Seleccione estatus"
-                      value={
-                        estatusEspecifico
-                          ? { value: estatusEspecifico, label: estatusEspecifico }
-                          : null
-                      }
-                      onChange={(opt) => setEstatusEspecifico(opt?.value || "")}
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">
+                    Estatus Específico <span className="text-red-500">*</span>
+                  </label>
+                  <ReactSelect
+                    options={ESTATUS_ESPECIFICO_NO_VENTA}
+                    getOptionValue={(opt) => `${opt.value}-${opt.id}`}
+                    getOptionLabel={(opt) => opt.label}
+                    placeholder="Seleccione estatus"
+                    value={
+                      estatusEspecifico
+                        ? ESTATUS_ESPECIFICO_NO_VENTA.find(
+                          (x) => x.value === estatusEspecifico
+                        )
+                        : null
+                    }
+                    onChange={(opt) => setEstatusEspecifico(opt?.value || "")}
+                  />
+                </div>
 
-                  <div className="space-y-1 md:col-span-1">
-                    <label className="text-sm font-medium">Observaciones</label>
-                    <textarea
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none min-h-[80px]"
-                      value={observaciones}
-                      onChange={(e) => setObservaciones(e.target.value)}
-                      placeholder="Comentarios adicionales sobre la no venta..."
-                    />
-                  </div>
+                <div className="space-y-1 mt-3">
+                  <label className="text-sm font-medium">Observaciones</label>
+                  <textarea
+                    value={observaciones}
+                    onChange={(e) => setObservaciones(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 min-h-[80px]"
+                  />
                 </div>
               </div>
             )}
 
-            <div className="mt-6 border rounded-2xl p-4">
-              <h3 className="text-sm font-semibold text-gray-800 mb-3">
-                Historial del Estado
-              </h3>
+            {/* =======================
+          HISTORIAL DEL ESTADO
+          (nuevo bloque PRO)
+      ======================= */}
 
-              {historialDelLeadActual.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  Aún no hay cambios registrados para este lead.
-                </p>
-              ) : (
-                <div className="border-t pt-3">
+            {historialDelLeadActual.length > 0 && (
+              <div className="mt-6 border rounded-2xl p-4 bg-white">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">
+                  Historial del Estado
+                </h3>
+
+                <div className="border-t pt-3 space-y-3 max-h-36 overflow-y-auto">
                   {historialDelLeadActual.map((h, idx) => {
                     const esUltimo = idx === historialDelLeadActual.length - 1;
-                    const numero = idx + 1;
 
                     return (
-                      <div key={idx} className="flex items-start gap-2 mt-2">
-                        <div className="flex flex-col items-center mt-1 min-h-[40px]">
+                      <div key={idx} className="flex items-start gap-3">
+                        {/* CÍRCULO + LÍNEA */}
+                        <div className="flex flex-col items-center">
                           <div
                             className={
                               esUltimo
                                 ? "w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs"
-                                : "w-6 h-6 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-xs"
+                                : "w-6 h-6 rounded-full bg-gray-300 text-gray-700 flex items-center justify-center text-xs"
                             }
                           >
-                            {esUltimo ? "✓" : numero}
+                            {esUltimo ? "✓" : idx + 1}
                           </div>
-                          {idx < historialDelLeadActual.length - 1 && (
-                            <div className="w-px flex-1 bg-gray-300" />
-                          )}
+                          {!esUltimo && <div className="w-px flex-1 bg-gray-300" />}
                         </div>
 
-                        <div className="flex-1">
-                          <div className="text-sm font-semibold text-gray-800">
-                            Estado: {h.estado}
+                        {/* INFO */}
+                        <div className="flex-1 text-xs">
+                          <div className="font-semibold text-gray-500">
+                            Estado: <span className="font-medium text-[#006341]">{h.estado}</span>
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {formatFechaHora(h.fecha)} · {h.usuario}
+                          <div className=" text-gray-500 text-[10px]">
+                            {formatFechaHora(h.fecha)} por {h.usuario}
                           </div>
-
-                          {h.fechaPactada && (
-                            <div className="text-xs text-gray-600 mt-1">
-                              <span className="font-semibold">Fecha Pactada: </span>
-                              {formatFecha(h.fechaPactada)}
-                              {h.horaPactada && ` · ${h.horaPactada}`}
-                            </div>
-                          )}
 
                           {h.detalle && (
-                            <div className="text-xs text-gray-700 mt-1">
-                              <span className="font-semibold">Detalle: </span>
-                              {h.detalle}
+                            <div className="mt-0.5 text-gray-700 text-[10px] leading-normal">Detalle de Estado: {h.detalle}</div>
+                          )}
+
+                          {h.fechaPactada && (
+                            <div className="mt-0.5 text-gray-600 text-[10px] leading-normal">
+                              <span className="font-semibold">Pactado: </span>
+                              {formatFecha(h.fechaPactada)} · {h.horaPactada}
                             </div>
                           )}
 
                           {h.estatusEspecifico && (
-                            <div className="text-xs text-gray-700 mt-1">
-                              <span className="font-semibold">Estatus específico: </span>
+                            <div className="mt-0.5 text-gray-600 text-[10px] leading-normal">
+                              <span className="font-semibold">
+                                Estatus específico:
+                              </span>{" "}
                               {h.estatusEspecifico}
                             </div>
                           )}
 
                           {h.observaciones && (
-                            <div className="text-xs text-gray-700 mt-1">
-                              <span className="font-semibold">Observaciones: </span>
+                            <div className="mt-0.5 text-gray-600 text-[10px] leading-normal">
+                              <span className="font-semibold">Observaciones:</span>{" "}
                               {h.observaciones}
                             </div>
                           )}
@@ -1221,163 +1566,250 @@ export default function SeguimientoLead() {
                     );
                   })}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
+            {/* =======================
+          BOTONES INFERIORES
+      ======================= */}
             <div className="mt-6 flex justify-end gap-3">
               <Button variant="outline" onClick={cerrarModalActualizar}>
                 Cancelar
               </Button>
+
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={handleClickGuardar}
+                onClick={handleGuardarClick}
               >
-                Guardar cambios
+                Actualizar Estado
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {modalInfoOpen && leadInfoSeleccionado && (() => {
-        const historialLeadInfo = historialPorLead[leadInfoSeleccionado.id] || [];
-        const ultimaActualizacion =
-          historialLeadInfo.length === 0
-            ? formatFecha(leadInfoSeleccionado.fechaRegistro)
-            : formatFechaHora(historialLeadInfo[historialLeadInfo.length - 1].fecha);
-
-        return (
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40">
-            <div
-              className="
-                bg-white
-                w-full
-                max-w-md
-                max-h-[80vh]
-                overflow-y-auto
-                rounded-xl
-                shadow-lg
-                p-6
-                relative
-                scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300
-              "
-            >
-              <button
-                className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
-                onClick={cerrarModalInfo}
-              >
-                <X className="h-5 w-5" />
-              </button>
-
-              <h2 className="text-xl font-semibold text-gray-800">
-                Información del Lead
-              </h2>
-
-              <p className="text-sm text-gray-600 mt-1">
-                Lead:{" "}
-                <span className="font-semibold">{leadInfoSeleccionado.codigo}</span>{" "}
-                - Cliente:{" "}
-                <span className="font-semibold">
-                  {leadInfoSeleccionado.clienteVinculado}
-                </span>
-              </p>
-
-              <div className="mt-5 border rounded-2xl p-4 bg-[#F9FAFB] space-y-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Lead Código</label>
-                  <Input
-                    value={leadInfoSeleccionado.codigo}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed border-gray-300"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Fecha Registro</label>
-                  <Input
-                    value={formatFecha(leadInfoSeleccionado.fechaRegistro)}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed border-gray-300"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Fecha Última Actualización</label>
-                  <Input
-                    value={ultimaActualizacion}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed border-gray-300"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Número Contacto</label>
-                  <Input
-                    value={leadInfoSeleccionado.numeroContacto}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed border-gray-300"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Email</label>
-                  <Input
-                    value={getEmailFromLead(leadInfoSeleccionado)}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed border-gray-300"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Cliente Vinculado</label>
-                  <Input
-                    value={leadInfoSeleccionado.clienteVinculado}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed border-gray-300"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Medio Registro</label>
-                  <Input
-                    value={leadInfoSeleccionado.medioRegistro}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed border-gray-300"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Asesor</label>
-                  <Input
-                    value={leadInfoSeleccionado.asesor}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed border-gray-300"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Campaña</label>
-                  <Input
-                    value={leadInfoSeleccionado.campania}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed border-gray-300"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <Button variant="outline" onClick={cerrarModalInfo}>
-                  Cerrar
-                </Button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {modalConfirmOpen && (
+      {/* MODAL CONFIRMACIÓN TRANSFERIR LEADS */}
+      {modalConfirmTransferOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-sm rounded-xl shadow-lg p-6 relative">
+            <button
+              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+              onClick={() => setModalConfirmTransferOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+              Confirmar transferencia
+            </h2>
+
+            <p className="text-sm text-gray-600">
+              ¿Estás seguro que deseas transferir{" "}
+              <span className="font-semibold">{totalSeleccionados}</span>{" "}
+              lead(s) al asesor{" "}
+              <span className="font-semibold">{asesorDestino}</span>?
+            </p>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setModalConfirmTransferOpen(false)}
+              >
+                Cancelar
+              </Button>
+
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={confirmarTransferenciaFinal}
+              >
+                Sí, transferir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL INFO LEAD */}
+      {modalInfoOpen && leadInfoSeleccionado && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40">
+          <div className="bg-white w-full max-w-xl rounded-xl shadow-lg p-6 relative">
+            <button
+              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+              onClick={cerrarModalInfo}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Información del Lead
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Código Lead</label>
+                <Input
+                  value={leadInfoSeleccionado.codigo}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Fecha Registro</label>
+                <Input
+                  value={formatFecha(leadInfoSeleccionado.fechaRegistro)}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Fecha Última Actualización</label>
+                <Input
+                  value={ultimaActualizacion}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Número Contacto</label>
+                <Input
+                  value={leadInfoSeleccionado.numeroContacto}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Cliente Vinculado</label>
+                <Input
+                  value={leadInfoSeleccionado.clienteVinculado}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Email (simulado)</label>
+                <Input
+                  value={getEmailFromLead(leadInfoSeleccionado)}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Medio Registro</label>
+                <Input
+                  value={leadInfoSeleccionado.medioRegistro}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Campaña</label>
+                <Input
+                  value={leadInfoSeleccionado.campania}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Asesor</label>
+                <Input
+                  value={leadInfoSeleccionado.asesor}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Supervisor</label>
+                <Input
+                  value={leadInfoSeleccionado.supervisor || "-"}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-sm font-medium">Estado Actual</label>
+                <Input
+                  value={leadInfoSeleccionado.estadoLead}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed border-gray-300"
+                />
+              </div>
+            </div>
+
+            {historialPorLead[leadInfoSeleccionado.id]?.length > 0 && (
+              <div className="mt-4 border-t pt-3">
+                <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                  Últimas gestiones
+                </h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {historialPorLead[leadInfoSeleccionado.id].map((h, idx) => (
+                    <div key={`${h.fecha}-${idx}`} className="border rounded-lg p-2 bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-800">
+                          {h.estado}
+                        </span>
+                        <span className="text-[11px] text-gray-500">
+                          {formatFechaHora(h.fecha)}
+                        </span>
+                      </div>
+
+                      {h.detalle && (
+                        <p className="mt-1 text-xs text-gray-700">{h.detalle}</p>
+                      )}
+
+                      {(h.fechaPactada || h.horaPactada) && (
+                        <p className="mt-1 text-[11px] text-gray-600">
+                          <span className="font-semibold">Pactado: </span>
+                          {h.fechaPactada ? formatFecha(h.fechaPactada) : ""}
+                          {h.horaPactada ? ` · ${h.horaPactada}` : ""}
+                        </p>
+                      )}
+
+                      {h.estatusEspecifico && (
+                        <p className="mt-1 text-[11px] text-gray-600">
+                          <span className="font-semibold">Estatus específico: </span>
+                          {h.estatusEspecifico}
+                        </p>
+                      )}
+
+                      {h.observaciones && (
+                        <p className="mt-1 text-[11px] text-gray-600">
+                          <span className="font-semibold">Observaciones: </span>
+                          {h.observaciones}
+                        </p>
+                      )}
+
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        Registrado por {h.usuario}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <Button variant="outline" onClick={cerrarModalInfo}>
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRMACIÓN GUARDAR */}
+      {modalConfirmOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-sm rounded-xl shadow-xl p-6 relative">
             <button
               className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
               onClick={cancelarConfirmacion}
@@ -1385,12 +1817,12 @@ export default function SeguimientoLead() {
               <X className="h-5 w-5" />
             </button>
 
-            <h2 className="text-lg font-semibold text-gray-800">
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">
               Confirmar actualización
             </h2>
-            <p className="text-sm text-gray-600 mt-2">
-              ¿Está seguro de actualizar el estado de este lead? Se registrará un nuevo
-              movimiento en el historial.
+            <p className="text-sm text-gray-600">
+              ¿Estás seguro que deseas actualizar el estado de este lead a{" "}
+              <span className="font-semibold">{estadoSeleccionado}</span>?
             </p>
 
             <div className="mt-6 flex justify-end gap-3">
