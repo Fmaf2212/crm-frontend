@@ -187,19 +187,14 @@ const horarioPactadoOptions: Option[] = [
   { value: 4, label: "1pm a 6pm" },
 ];
 
-const idLead = Number(localStorage.getItem("sn_idLead")) || 0;
-const numeroContactoLead = localStorage.getItem("sn_numeroContacto") || "";
-
 const CrearPedido: React.FC = () => {
   const location = useLocation();
 
   const usuarioLS = localStorage.getItem("sn_user");
   const idUsuario = usuarioLS ? JSON.parse(usuarioLS).id_Usuario : 0;
 
-  const [telefono, setTelefono] = useState("");
   const [numeroDocumento, setNumeroDocumento] = useState("");
   const [clienteNombre, setClienteNombre] = useState("");
-  const [telefonoAlternativo, setTelefonoAlternativo] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState<Option | null>(null);
   const [tipoComprobante, setTipoComprobante] = useState<Option | null>(null);
   const [acuerdoPago, setAcuerdoPago] = useState<Option | null>(null);
@@ -377,7 +372,6 @@ const CrearPedido: React.FC = () => {
       alert("Cliente no encontrado");
       setClienteNombre("");
       setTipoDocumento(null);
-      setTelefonoAlternativo("");
       return;
     }
 
@@ -385,7 +379,6 @@ const CrearPedido: React.FC = () => {
     setClienteNombre(data.cliente || "");
     const tipoDoc = tipoDocumentoOptions.find((x) => x.value === data.id_Tipo_Documento) || null;
     setTipoDocumento(tipoDoc);
-    setTelefonoAlternativo(data.telefono_Alternativo || "");
     setClienteMail(data.mail || "");
   };
 
@@ -669,7 +662,6 @@ const CrearPedido: React.FC = () => {
             setNumeroDocumento("");
             setClienteNombre("");
             setClienteMail("");
-            setTelefonoAlternativo("");
             setTipoDocumento(null);
             setTipoComprobante(null);
             setAcuerdoPago(null);
@@ -716,10 +708,6 @@ const CrearPedido: React.FC = () => {
       },
     });
   };
-
-useEffect(() => {
-  if (numeroContactoLead) setTelefono(numeroContactoLead);
-}, []);
 
   return (
     <AppLayout title="Crear Pedido">
@@ -776,6 +764,7 @@ useEffect(() => {
                           Tipo de Documento <span className="text-red-500">*</span>
                         </label>
                         <ReactSelect
+                          placeholder="Seleccione tipo"
                           classNamePrefix="rs"
                           value={tipoDocumento}
                           onChange={(v) => setTipoDocumento(v as Option)}
@@ -793,6 +782,7 @@ useEffect(() => {
 
                         <div className="flex items-center gap-2">
                           <input
+                            placeholder="Ingrese número"
                             type="text"
                             value={numeroDocumento}
                             onChange={(e) => setNumeroDocumento(e.target.value)}
@@ -812,6 +802,7 @@ useEffect(() => {
                           Cliente <span className="text-red-500">*</span>
                         </label>
                         <input
+                          placeholder="Nombre completo del cliente"
                           type="text"
                           value={clienteNombre}
                           onChange={(e) => setClienteNombre(e.target.value)}
@@ -821,7 +812,7 @@ useEffect(() => {
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-3 mt-2">
-                      <div>
+                      {/* <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                           Teléfono Alternativo
                         </label>
@@ -832,12 +823,13 @@ useEffect(() => {
                           placeholder="Número alternativo"
                           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none"
                         />
-                      </div>
+                      </div> */}
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                           Correo
                         </label>
                         <input
+                          placeholder="ejemplo@correo.com"
                           type="email"
                           value={clienteMail}
                           onChange={(e) => setClienteMail(e.target.value)}
@@ -849,6 +841,7 @@ useEffect(() => {
                           Tipo de Comprobante <span className="text-red-500">*</span>
                         </label>
                         <ReactSelect
+                          placeholder="Seleccione comprobante"
                           classNamePrefix="rs"
                           value={tipoComprobante}
                           onChange={(v) => setTipoComprobante(v as Option)}

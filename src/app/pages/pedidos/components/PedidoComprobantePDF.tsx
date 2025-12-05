@@ -196,7 +196,7 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Teléfono:</Text>
                   <Text style={styles.value}>
-                    {lead?.numero_De_Contacto || "—"}
+                    {data?.telefono_Alterno || "—"}
                   </Text>
                 </View>
 
@@ -220,7 +220,7 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Teléfono Alternativo:</Text>
                   <Text style={styles.value}>
-                    {data?.telefono_Alterno?.trim() || "—"}
+                    {data?.numero_De_Contacto?.trim() || "—"}
                   </Text>
                 </View>
 
