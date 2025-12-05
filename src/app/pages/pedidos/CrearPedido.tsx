@@ -616,7 +616,7 @@ const CrearPedido: React.FC = () => {
 
     const body = {
       id_Lead: leadIdUI,
-      telefono_Alterno: telefonoAlternativo,
+      telefono_Alterno: telefonoLeadUI,
       cantidad_Productos: cartItems.reduce((s, i) => s + i.quantity, 0),
       monto_Total_Regular: totalRegular,
       monto_Total_Promocional: totalPromotional,
@@ -657,57 +657,57 @@ const CrearPedido: React.FC = () => {
 
         try {
           console.log(body);
-          // const res = await PedidoService.insertPedido(body);
+          const res = await PedidoService.insertPedido(body);
 
-          // console.log(res);
-          // if (!res.error) {
-          //   showToast("Pedido registrado correctamente", "success");
+          console.log(res);
+          if (!res.error) {
+            showToast("Pedido registrado correctamente", "success");
 
-          //   setLeadIdUI(null);
-          //   setTelefonoLeadUI(null);
+            setLeadIdUI(null);
+            setTelefonoLeadUI(null);
 
-          //   setNumeroDocumento("");
-          //   setClienteNombre("");
-          //   setClienteMail("");
-          //   setTelefonoAlternativo("");
-          //   setTipoDocumento(null);
-          //   setTipoComprobante(null);
-          //   setAcuerdoPago(null);
+            setNumeroDocumento("");
+            setClienteNombre("");
+            setClienteMail("");
+            setTelefonoAlternativo("");
+            setTipoDocumento(null);
+            setTipoComprobante(null);
+            setAcuerdoPago(null);
 
-          //   setProductos([]);
-          //   setSelectedProductOption(null);
-          //   setSelectedProductDetail(null);
-          //   setQuantity(1);
-          //   setDiscountLevel(nivelDescuentoOptions[0]);
-          //   setDiscountDisabled(false);
-          //   setCartItems([]);
+            setProductos([]);
+            setSelectedProductOption(null);
+            setSelectedProductDetail(null);
+            setQuantity(1);
+            setDiscountLevel(nivelDescuentoOptions[0]);
+            setDiscountDisabled(false);
+            setCartItems([]);
 
-          //   setTipoEntrega(null);
+            setTipoEntrega(null);
 
-          //   setDepartamentos([]);
-          //   setProvincias([]);
-          //   setDistritos([]);
+            setDepartamentos([]);
+            setProvincias([]);
+            setDistritos([]);
 
-          //   setDepartamentoSel(null);
-          //   setProvinciaSel(null);
-          //   setDistritoSel(null);
+            setDepartamentoSel(null);
+            setProvinciaSel(null);
+            setDistritoSel(null);
 
-          //   setDireccion("");
-          //   setReferencia("");
-          //   setIndicacionesEntrega("");
-          //   setLinkUbicacion("");
-          //   setMedioEnvio(null);
-          //   setFechaPactada("");
-          //   setHorarioPactado(null);
+            setDireccion("");
+            setReferencia("");
+            setIndicacionesEntrega("");
+            setLinkUbicacion("");
+            setMedioEnvio(null);
+            setFechaPactada("");
+            setHorarioPactado(null);
 
-          //   setAuthorizedReceiver(null);
-          //   setReceiverName("");
+            setAuthorizedReceiver(null);
+            setReceiverName("");
 
-          //   setLoading(false);
+            setLoading(false);
 
-          // } else {
-          //   showToast(res.message || "No se pudo registrar el pedido", "error");
-          // }
+          } else {
+            showToast(res.message || "No se pudo registrar el pedido", "error");
+          }
         } catch (err) {
           showToast("Error de conexión al registrar el pedido", "error");
         } finally {
@@ -1157,7 +1157,7 @@ useEffect(() => {
                     No hay productos en el carrito
                   </p>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-4 max-h-[500px] overflow-y-auto pb-5">
                     {cartItems.map((item) => {
                       const precioRegular = item.priceRegularUnit;
                       const precioPromo = item.pricePromotionalUnit;

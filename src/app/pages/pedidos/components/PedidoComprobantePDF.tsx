@@ -1,305 +1,250 @@
+// ===========================================
+//   PDF COMPACTADO • TOTALMENTE OPTIMIZADO
+//   PARA KENNY + ZOILA (SIN ELIMINAR CAMPOS)
+// ===========================================
+
 import {
   Document,
   Page,
   Text,
   View,
   StyleSheet,
+  Image,
 } from "@react-pdf/renderer";
 
-// ================ PDF: COMPROBANTE DE PEDIDO =================
-
 type PedidoComprobanteProps = {
-  data: any; // Recibe TODO el detalle real del backend
+  data: any;
 };
 
+// ===============================
+//   ESTILOS COMPACTADOS
+// ===============================
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 32,
-    paddingBottom: 40,
-    paddingHorizontal: 60,
+    paddingTop: 26,
+    paddingBottom: 30,
+    paddingHorizontal: 50,
     fontSize: 10,
     fontFamily: "Helvetica",
     color: "#111827",
   },
+
+  // ---- HEADER ----
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 6,
   },
-  logoBox: {
-    width: 80,
-    height: 40,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#10B981",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoText: { fontSize: 9, color: "#10B981" },
+  logoBox: { width: 140, height: 60 },
   headerTitle: { fontSize: 14, fontWeight: 700, color: "#059669" },
-  headerSub: { marginTop: 4, fontSize: 9, color: "#6B7280"},
+  headerNroPedido: { fontSize: 14, fontWeight: 700 },
+  headerSub: { marginTop: 2, fontSize: 9, color: "#6B7280" },
 
-  section: { marginTop: 14 },
+  // ---- SECCIONES ----
+  section: { marginTop: 12 },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: 700,
     color: "#059669",
-    marginBottom: 6,
+    marginBottom: 4,
     textTransform: "uppercase",
   },
 
   card: {
     borderTopColor: "#E5E7EB",
     borderTopWidth: 1,
-    borderTopStyle: "solid",
-    paddingTop: 8,
+    paddingTop: 6,
   },
+
   row: { flexDirection: "row" },
   col: { flex: 1 },
-  rowBlockInput: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-  label: { fontSize: 9, color: "#6B7280", marginTop: 4 },
-  value: { marginLeft: 5, fontSize: 10, color: "#111827", marginTop: 1 },
+  rowBlockInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  label: { fontSize: 8, color: "#6B7280" },
+  value: { marginLeft: 4, fontSize: 9 },
 
+  // ---- TABLA ----
   table: {
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    borderRadius: 6,
+    borderRadius: 4,
     overflow: "hidden",
   },
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#F3F4F6",
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
-  th: { paddingVertical: 6, paddingHorizontal: 6, fontSize: 9, fontWeight: 700 },
-  td: { paddingVertical: 4, paddingHorizontal: 6, fontSize: 9 },
+  th: { paddingVertical: 2, paddingHorizontal: 4, fontSize: 8, fontWeight: 700 },
+  td: { paddingVertical: 1, paddingHorizontal: 4, fontSize: 8 },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
 
-  infoExtraRow: {
-    flexDirection: "row",
-    marginTop: 6,
-  },
-
-  resumenCard: {
-    borderWidth: 1,
-    backgroundColor: "#F9FAFB",
-    borderColor: "#E5E7EB",
-    borderRadius: 6,
-    padding: 8,
-    width: 190,
-    alignSelf: "flex-end",
-    marginTop: 8,
-  },
-  resumenRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
-  resumenTotalRow: {
+  // ---- TOTALES EN UNA FILA ----
+  resumenFila: {
     flexDirection: "row",
     justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: 4,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    padding: 6,
     marginTop: 6,
-    borderTopColor: "#E5E7EB",
-    borderTopWidth: 1,
-    paddingTop: 4,
   },
-  resumenLabel: { fontSize: 9, color: "#6B7280" },
-  resumenValue: { fontSize: 9, color: "#111827" },
-  resumenTotalLabel: { fontSize: 10, fontWeight: 700 },
-  resumenTotalValue: { fontSize: 11, fontWeight: 700, color: "#059669" },
+  resumenTexto: { fontSize: 8 },
+  resumenTotal: { fontSize: 9, fontWeight: "bold", color: "#059669" },
 
+  // ---- FOOTER ----
   footer: {
-    marginTop: 20,
+    marginTop: 18,
     textAlign: "center",
-    borderTopColor: "#E5E7EB",
     borderTopWidth: 1,
-    paddingTop: 12,
-  },
-
-  badge: {
-    fontSize: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 999,
+    borderColor: "#E5E7EB",
+    paddingTop: 10,
   },
 });
 
-const getPedidoBadgeStyle = (estado: string) => {
-  switch (estado) {
-    case "Ingresada":
-      return { backgroundColor: "#DBEAFE", color: "#1D4ED8" }; // azul
-    case "Incidencia":
-      return { backgroundColor: "#FEF3C7", color: "#B45309" }; // amarillo
-    case "Confirmada":
-      return { backgroundColor: "#DBEAFE", color: "#1D4ED8" };
-    case "Cancelada":
-    case "Cancelada Retornar":
-      return { backgroundColor: "#FECACA", color: "#B91C1C" }; // rojo
-    case "Listo Despacho":
-    case "Entregada":
-    case "Liquidada":
-      return { backgroundColor: "#DCFCE7", color: "#059669" }; // verde
-    case "En Ruta":
-      return { backgroundColor: "#E0F2FE", color: "#0284C7" }; // celeste
-    case "En Retorno":
-      return { backgroundColor: "#FFEDD5", color: "#C2410C" }; // naranja
-    case "Retornada":
-      return { backgroundColor: "#E5E7EB", color: "#374151" }; // gris
-    default:
-      return { backgroundColor: "#E5E7EB", color: "#374151" }; // neutro
-  }
-};
-
-const getPagoBadgeStyle = (estado: string) => {
-  switch (estado) {
-    case "Pendiente":
-      return { backgroundColor: "#FEF3C7", color: "#B45309" };
-    case "Pagado":
-      return { backgroundColor: "#DCFCE7", color: "#059669" };
-    case "Anulado":
-      return { backgroundColor: "#FECACA", color: "#B91C1C" };
-    default:
-      return { backgroundColor: "#E5E7EB", color: "#374151" };
-  }
-};
-
-const getFacturacionBadgeStyle = (estado: string) => {
-  switch (estado) {
-    case "Pendiente":
-      return { backgroundColor: "#FEF3C7", color: "#B45309" };
-    case "Facturado":
-      return { backgroundColor: "#DCFCE7", color: "#059669" };
-    case "Anulado":
-    case "Por Anular":
-      return { backgroundColor: "#FECACA", color: "#B91C1C" };
-    default:
-      return { backgroundColor: "#E5E7EB", color: "#374151" };
-  }
-};
-
+// ===============================
+//  COMPONENTE PRINCIPAL
+// ===============================
 
 const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
   const cliente = data?.detalleClientePorPedido ?? {};
   const lead = data?.detalleLeadPorPedido ?? {};
   const delivery = data?.detalleDeliveryPorPedido ?? {};
-  const producto = data?.detallePedido ?? {};
 
   const subtotal = Number(data.monto_Total_Regular ?? 0);
   const descuento = subtotal - Number(data.monto_Total_Promocional ?? 0);
-  const costoEnvio = Number(data.precioDelivery ?? 0);
-  const total = Number(data.monto_Total_Promocional ?? 0) + costoEnvio;
+  const envio = Number(data.precioDelivery ?? 0);
+  const total = Number(data.monto_Total_Promocional ?? 0) + envio;
+  const diferenciaPorPagar = Number(data.diferencia_Por_Pagar ?? 0);
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
 
-        {/* ======================= HEADER ======================= */}
+        {/* ========================== HEADER ========================== */}
         <View style={styles.headerRow}>
           <View style={styles.logoBox}>
-            <Text style={styles.logoText}>LOGO</Text>
+            <Image src="/assets/logoSN_PDF.png" />
           </View>
 
           <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.headerTitle}>COMPROBANTE DE PEDIDO</Text>
-            <Text style={styles.headerSub}>{data.id_Pedido ?? ""}</Text>
+            <Text style={styles.headerNroPedido}>
+              Nro Pedido: {data.id_Pedido}
+            </Text>
             <Text style={styles.headerSub}>{data.fecha_Registro_Pedido}</Text>
           </View>
         </View>
 
-        {/* ======================= CLIENTE ======================= */}
+        {/* ========================== CLIENTE ========================== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>INFORMACIÓN DEL CLIENTE</Text>
 
           <View style={styles.card}>
+            {/* Nombre - Documento */}
             <View style={styles.row}>
               <View style={styles.col}>
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Nombre:</Text>
                   <Text style={styles.value}>{cliente?.cliente}</Text>
                 </View>
+              </View>
 
+              <View style={[styles.col, { paddingLeft: 8 }]}>
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Documento:</Text>
                   <Text style={styles.value}>
                     {cliente?.tipo_Documento} {cliente?.numero_Documento}
                   </Text>
                 </View>
+              </View>
+            </View>
+
+            {/* Dirección (con maxWidth para evitar overflow) */}
+            <View style={styles.row}>
+              <View style={styles.col}>
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Dirección:</Text>
+                  <View style={{ maxWidth: 260 }}>
+                    <Text style={styles.value}>
+                      {delivery?.direccion_Delivery?.trim() ||
+                        "Sin dirección registrada"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Provincia - Distrito - Teléfonos */}
+            <View style={styles.row}>
+              <View style={styles.col}>
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Provincia:</Text>
+                  <Text style={styles.value}>{delivery?.provincia}</Text>
+                </View>
 
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Teléfono:</Text>
-                  <Text style={styles.value}>{lead?.numero_De_Contacto}</Text>
+                  <Text style={styles.value}>
+                    {lead?.numero_De_Contacto || "—"}
+                  </Text>
+                </View>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Tipo de entrega:</Text>
+                  <Text style={styles.value}>{delivery?.tipo_de_Entrega}</Text>
+                </View>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Horario pactado:</Text>
+                  <Text style={styles.value}>{delivery?.horario_Pactado}</Text>
                 </View>
               </View>
 
-              <View style={[styles.col, { paddingLeft: 12 }]}>
-                <View style={styles.rowBlockInput}>
-                  <Text style={styles.label}>Tipo de entrega:</Text>
-                  <Text style={styles.value}>
-                    {delivery?.tipo_de_Entrega ?? "No registrado"}
-                  </Text>
-                </View>
-
-                <View style={styles.rowBlockInput}>
-                  <Text style={styles.label}>Dirección:</Text>
-                  <Text style={[styles.value, { maxWidth: 180 }]}>
-                    {delivery?.direccion_Delivery ?? "Sin dirección registrada"}
-                  </Text>
-                </View>
-
-                <View style={styles.rowBlockInput}>
-                  <Text style={styles.label}>Provincia:</Text>
-                  <Text style={styles.value}>
-                    {delivery?.provincia ?? "No registrado"}
-                  </Text>
-                </View>
-
+              <View style={[styles.col, { paddingLeft: 8 }]}>
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Distrito:</Text>
+                  <Text style={styles.value}>{delivery?.distrito}</Text>
+                </View>
+
+                <View style={styles.rowBlockInput}>
+                  <Text style={styles.label}>Teléfono Alternativo:</Text>
                   <Text style={styles.value}>
-                    {delivery?.distrito ?? "No registrado"}
+                    {data?.telefono_Alterno?.trim() || "—"}
                   </Text>
                 </View>
 
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Medio de envío:</Text>
-                  <Text style={styles.value}>
-                    {delivery?.medio_de_Envio ?? "Sin información"}
-                  </Text>
-                </View>
-
-                <View style={styles.rowBlockInput}>
-                  <Text style={styles.label}>Fecha pactada:</Text>
-                  <Text style={styles.value}>
-                    {delivery?.fecha_Pactada_Delivery ?? "—"}
-                  </Text>
-                </View>
-
-                <View style={styles.rowBlockInput}>
-                  <Text style={styles.label}>Horario pactado:</Text>
-                  <Text style={styles.value}>
-                    {delivery?.horario_Pactado ?? "—"}
-                  </Text>
+                  <Text style={styles.value}>{delivery?.medio_de_Envio}</Text>
                 </View>
               </View>
             </View>
           </View>
         </View>
 
-        {/* ======================= PRODUCTOS ======================= */}
+        {/* ========================== PRODUCTOS ========================== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>PRODUCTOS DEL PEDIDO</Text>
 
           <View style={styles.card}>
             <View style={styles.table}>
-
-              {/* HEADER */}
+              {/* Header */}
               <View style={styles.tableHeader}>
-                <View style={{ flex: 2.5 }}>
+                <View style={{ flex: 2.4 }}>
                   <Text style={styles.th}>Producto</Text>
                 </View>
-                <View style={{ flex: 1.2 }}>
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.th, { textAlign: "right" }]}>
                     Precio Base
                   </Text>
@@ -311,174 +256,130 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
                 </View>
                 <View style={{ flex: 1.2 }}>
                   <Text style={[styles.th, { textAlign: "right" }]}>
-                    Precio con Desc.
+                    Precio Desc.
                   </Text>
                 </View>
-                <View style={{ flex: 0.8 }}>
+                <View style={{ flex: 0.6 }}>
                   <Text style={[styles.th, { textAlign: "center" }]}>
                     Cant.
                   </Text>
                 </View>
-                <View style={{ flex: 1.2 }}>
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.th, { textAlign: "right" }]}>
                     Subtotal
                   </Text>
                 </View>
               </View>
 
-              {/* FILAS DE PRODUCTOS - ITERACIÓN DEL ARRAY */}
-              {data?.detallePedido && Array.isArray(data.detallePedido) && data.detallePedido.length > 0 ? (
-                data.detallePedido.map((producto: any, index: number) => (
-                  <View key={index} style={styles.tableRow}>
-                    <View style={{ flex: 2.5 }}>
-                      <Text style={styles.td}>{producto.nombre_Producto}</Text>
+              {/* Rows */}
+              {data.detallePedido?.length > 0 ? (
+                data.detallePedido.map((prod: any, i: number) => (
+                  <View key={i} style={styles.tableRow}>
+                    <View style={{ flex: 2.4 }}>
+                      <Text style={styles.td}>{prod.nombre_Producto}</Text>
                     </View>
 
-                    <View style={{ flex: 1.2 }}>
+                    <View style={{ flex: 1 }}>
                       <Text style={[styles.td, { textAlign: "right" }]}>
-                        S/ {producto.precio_Regular?.toFixed(2) || "0.00"}
+                        S/ {prod.precio_Regular?.toFixed(2)}
                       </Text>
                     </View>
 
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.td, { textAlign: "center", color: "#DC2626" }]}>
-                        {producto.nombre_Descuento === "Sin Descuento" ? "-" : producto.nombre_Descuento}
+                      <Text style={[styles.td, { textAlign: "center" }]}>
+                        {prod.nombre_Descuento === "Sin Descuento"
+                          ? "-"
+                          : prod.nombre_Descuento}
                       </Text>
                     </View>
 
                     <View style={{ flex: 1.2 }}>
                       <Text style={[styles.td, { textAlign: "right" }]}>
-                        S/ {producto.precio_Promocional?.toFixed(2) || "0.00"}
+                        S/ {prod.precio_Promocional?.toFixed(2)}
                       </Text>
                     </View>
 
-                    <View style={{ flex: 0.8 }}>
+                    <View style={{ flex: 0.6 }}>
                       <Text style={[styles.td, { textAlign: "center" }]}>
-                        {producto.cantidad}
+                        {prod.cantidad}
                       </Text>
                     </View>
 
-                    <View style={{ flex: 1.2 }}>
-                      <Text style={[styles.td, { textAlign: "right", fontWeight: "bold" }]}>
-                        S/ {producto.subtotal_Promocional?.toFixed(2) || "0.00"}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.td,
+                          { textAlign: "right", fontWeight: "bold" },
+                        ]}
+                      >
+                        S/ {prod.subtotal_Promocional?.toFixed(2)}
                       </Text>
                     </View>
                   </View>
                 ))
               ) : (
                 <View style={styles.tableRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.td, { textAlign: "center", color: "#6B7280" }]}>
-                      No hay productos en este pedido
-                    </Text>
-                  </View>
+                  <Text style={[styles.td, { textAlign: "center", color: "#6B7280" }]}>
+                    No hay productos
+                  </Text>
                 </View>
               )}
             </View>
           </View>
 
-          {/* ======================= RESUMEN ======================= */}
-          <View style={styles.resumenCard}>
-            <View style={styles.resumenRow}>
-              <Text style={styles.resumenLabel}>Subtotal:</Text>
-              <Text style={styles.resumenValue}>S/ {subtotal.toFixed(2)}</Text>
-            </View>
-
-            <View style={styles.resumenRow}>
-              <Text style={styles.resumenLabel}>Descuento total:</Text>
-              <Text style={[styles.resumenValue, { color: "#DC2626" }]}>
-                -S/ {descuento.toFixed(2)}
-              </Text>
-            </View>
-
-            <View style={styles.resumenRow}>
-              <Text style={styles.resumenLabel}>Costo de envío:</Text>
-              <Text style={styles.resumenValue}>
-                S/ {costoEnvio.toFixed(2)}
-              </Text>
-            </View>
-
-            <View style={styles.resumenTotalRow}>
-              <Text style={styles.resumenTotalLabel}>TOTAL A PAGAR:</Text>
-              <Text style={styles.resumenTotalValue}>S/ {total.toFixed(2)}</Text>
-            </View>
+          {/* ========================== RESUMEN (HORIZONTAL) ========================== */}
+          <View style={styles.resumenFila}>
+            <Text style={styles.resumenTexto}>
+              Subtotal: S/ {subtotal.toFixed(2)}
+            </Text>
+            <Text style={styles.resumenTexto}>
+              Desc: -S/ {descuento.toFixed(2)}
+            </Text>
+            <Text style={styles.resumenTexto}>Envío: S/ {envio.toFixed(2)}</Text>
+            <Text style={styles.resumenTotal}>Total: S/ {total.toFixed(2)}</Text>
           </View>
         </View>
 
-        {/* ====================== INFORMACIÓN ADICIONAL ====================== */}
+        {/* ========================== INFO ADICIONAL ========================== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>INFORMACIÓN ADICIONAL</Text>
 
           <View style={styles.card}>
-
-            {/* Creamos dos columnas verticales que NO interfieren entre sí */}
-            <View style={[styles.row, { alignItems: "flex-start" }]}>
-
-              {/* COLUMNA IZQUIERDA */}
-              <View style={{ flex: 1, paddingRight: 12 }}>
-
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Asesor responsable:</Text>
+                  <Text style={styles.value}>{lead?.asesor || "—"}</Text>
                 </View>
-                <Text style={[styles.value, { marginBottom: 6 }]}>
-                  {lead?.asesor ?? "No registrado"}
-                </Text>
 
                 <View style={styles.rowBlockInput}>
-                  <Text style={styles.label}>Supervisor:</Text>
-                </View>
-                <Text style={styles.value}>
-                  {lead?.supervisor ?? "No registrado"}
-                </Text>
-
-              </View>
-
-              {/* COLUMNA DERECHA */}
-              <View style={{ flex: 1, paddingLeft: 12 }}>
-
-                <View style={styles.rowBlockInput}>
-                  <Text style={styles.label}>Estado del pedido:</Text>
-                  <Text
-                    style={[
-                      styles.badge,
-                      getPedidoBadgeStyle(data?.estatus_Operacion ?? ""),
-                    ]}
-                  >
-                    {data?.estatus_Operacion ?? "—"}
+                  <Text style={styles.label}>Acuerdo de pago:</Text>
+                  <Text style={styles.value}>
+                    {data.acuerdo_De_Pago || "—"}
                   </Text>
                 </View>
+              </View>
 
+              <View style={{ flex: 1, paddingLeft: 8 }}>
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Estado del pago:</Text>
-                  <Text
-                    style={[
-                      styles.badge,
-                      getPagoBadgeStyle(data?.estatus_Pago ?? ""),
-                    ]}
-                  >
-                    {data?.estatus_Pago ?? "—"}
+                  <Text style={[styles.value, { fontWeight: "bold" }]}>
+                    {data.estatus_Pago || "—"}
                   </Text>
                 </View>
 
                 <View style={styles.rowBlockInput}>
-                  <Text style={styles.label}>Estado de facturación:</Text>
-                  <Text
-                    style={[
-                      styles.badge,
-                      getFacturacionBadgeStyle(data?.estatus_Facturacion ?? ""),
-                    ]}
-                  >
-                    {data?.estatus_Facturacion ?? "—"}
+                  <Text style={styles.label}>Diferencia por pagar:</Text>
+                  <Text style={[styles.value, { fontWeight: "bold" }]}>
+                    S/ {diferenciaPorPagar.toFixed(2)}
                   </Text>
                 </View>
-
               </View>
-
             </View>
           </View>
         </View>
 
-        {/* ====================== INSTRUCCIONES ESPECIALES ====================== */}
+        {/* ========================== INDICACIONES ========================== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>INSTRUCCIONES ESPECIALES</Text>
 
@@ -486,13 +387,13 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
             <View
               style={{
                 borderWidth: 1,
-                backgroundColor: "#F9FAFB",
+                borderRadius: 4,
                 borderColor: "#E5E7EB",
-                borderRadius: 6,
-                padding: 8,
+                backgroundColor: "#F9FAFB",
+                padding: 6,
               }}
             >
-              <Text style={{ fontSize: 9, color: "#4B5563" }}>
+              <Text style={{ fontSize: 8 }}>
                 {delivery?.indicaciones_De_Entrega?.trim()
                   ? delivery.indicaciones_De_Entrega
                   : "No hay indicaciones registradas para este pedido."}
@@ -501,32 +402,36 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
           </View>
         </View>
 
-
-        {/* ====================== FOOTER ====================== */}
+        {/* ========================== FOOTER ========================== */}
         <View style={styles.footer}>
-          <Text style={{ fontSize: 12, color: "#4B5563", marginBottom: 4 }}>
-            Gracias por su compra. Santa Natura – Productos naturales que cuidan tu salud.
+          <Text style={{ fontSize: 11, marginBottom: 3 }}>
+            SANTA NATURA – VIVIR BIEN ESTÁ EN NUESTRAS RAÍCES
           </Text>
 
           <View
             style={{
               flexDirection: "row",
               justifyContent: "center",
-              gap: 24,
-              marginBottom: 6,
-              marginTop: 6,
+              gap: 20,
+              marginBottom: 4,
             }}
           >
-            <Text style={{ fontSize: 10, color: "#4B5563" }}>/SantaNaturaPeru</Text>
-            <Text style={{ fontSize: 10, color: "#4B5563" }}>@santanaturaperu</Text>
-            <Text style={{ fontSize: 10, color: "#4B5563" }}>www.santanatura.com.pe</Text>
+            {/* WhatsApp */}
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Image
+                src="/assets/icoWsp.png"
+                style={{ width: 12, height: 12, marginRight: 3 }}
+              />
+              <Text style={{ fontSize: 10, color: "#059669" }}>922879308</Text>
+            </View>
+
+            <Text style={{ fontSize: 10 }}>www.santanatura.com.pe</Text>
           </View>
 
-          <Text style={{ fontSize: 10, color: "#9CA3AF" }}>
+          <Text style={{ fontSize: 8, color: "#6B7280" }}>
             Este documento es generado automáticamente por el sistema de gestión de pedidos Santa Natura.
           </Text>
         </View>
-
       </Page>
     </Document>
   );
