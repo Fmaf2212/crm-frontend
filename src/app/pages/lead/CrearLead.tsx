@@ -595,8 +595,7 @@ export default function CrearLead() {
         {leadsEncontrados !== null && (
           <Card>
             <SectionTitle icon={FileText}>
-              Leads Vinculados al Número +{codigoPais}
-              {numeroContacto}
+              Leads Vinculados al Número +{codigoPais} {numeroContacto}
             </SectionTitle>
 
             <div className="p-6 space-y-5 bg-white rounded-b-2xl">

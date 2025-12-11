@@ -35,7 +35,7 @@ export function AppLayout({ children, title }: { children: React.ReactNode; titl
       )}
 
       {/* CONTENIDO PRINCIPAL */}
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 overflow-x-auto">
         <Header onMenuClick={() => setMobileOpen(true)} title={title}/>
 
         <main className="p-6 flex-1 overflow-y-auto bg-[#F8F9FA]">

@@ -139,7 +139,7 @@ const CrearProducto: React.FC = () => {
     const esPaquete = tipoAgrupacion === true;
 
     if (!esPaquete) {
-      if (!precioRegular || Number(precioRegular) <= 0)
+      if (precioRegular === "" || Number(precioRegular) < 0)
         return "Debe ingresar un Precio Regular válido.";
 
       if (precioPromocional === "" || Number(precioPromocional) < 0)
@@ -508,13 +508,7 @@ const CrearProducto: React.FC = () => {
         precioMaximo: filtroMax ? Number(filtroMax) : 0,
       };
 
-      const inicio = performance.now();  // Marca de tiempo
-
       const res = await ProductService.getProductosAdmin(body);
-
-      const fin = performance.now();     // Marca de tiempo al terminar
-
-      console.log(`⏱ Tiempo de carga: ${(fin - inicio).toFixed(2)} ms`);
 
       if (!res.error && res.data?.productoGeneral) {
 
@@ -584,7 +578,7 @@ const CrearProducto: React.FC = () => {
   };
 
   const handleEditProducto = async (producto: any) => {
-    console.log(producto);
+    // console.log(producto);
     if (!producto.id_Producto) {
       cargarProductoAlFormulario(producto);
       setModoFormulario("crear");
@@ -619,7 +613,7 @@ const CrearProducto: React.FC = () => {
     const res = await ProductService.getProductForEdit({
       idProducto: producto.id_Producto
     });
-    console.log(res);
+    // console.log(res);
     if (res.error || !res.data) {
       showToast("No se pudo duplicar el producto.", "error");
       return;
@@ -748,7 +742,7 @@ const CrearProducto: React.FC = () => {
 
       if (!res.error) {
         showToast("Producto eliminado correctamente.", "success");
-        cargarProductos(); // refresca tabla
+        cargarProductos();
       } else {
         showToast(res.message || "No se pudo eliminar el producto.", "error");
       }

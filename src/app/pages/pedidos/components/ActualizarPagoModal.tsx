@@ -311,10 +311,10 @@ const ActualizarPagoModal: React.FC<Props> = ({
         })),
       };
 
-      console.log("REQUEST →", payload);
+      // console.log("REQUEST →", payload);
 
       const response = await PedidoService.insertPedidoEstatusPago(payload);
-      console.log("RESPONSE →", response);
+      // console.log("RESPONSE →", response);
 
       if (response?.error === true) {
         showToast(

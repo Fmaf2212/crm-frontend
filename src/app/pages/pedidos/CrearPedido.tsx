@@ -142,14 +142,11 @@ const tipoComprobanteOptions: Option[] = [
 
 const nivelDescuentoOptions: DiscountOption[] = [
   { value: 1, label: "Sin Descuento", percent: 0.0 },
-  // { value: 2, label: "5%", percent: 0.05 },
   { value: 3, label: "10%", percent: 0.1 },
   { value: 4, label: "15%", percent: 0.15 },
   { value: 5, label: "20%", percent: 0.2 },
   { value: 6, label: "25%", percent: 0.25 },
   { value: 7, label: "30%", percent: 0.3 },
-  // { value: 8, label: "35%", percent: 0.35 },
-  // { value: 9, label: "40%", percent: 0.4 },
 ];
 
 const acuerdoPagoOptions: Option[] = [
@@ -189,6 +186,13 @@ const horarioPactadoOptions: Option[] = [
 
 const CrearPedido: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const modo: "venta" | "recompra" = location.state?.modo || "venta";
+  const payloadRecompra = location.state?.payloadNuevoPedido || null;
+
+  const idLeadFromNav = location.state?.idLead || null;
+  const telefonoFromNav = location.state?.numeroContacto || null;
 
   const usuarioLS = localStorage.getItem("sn_user");
   const idUsuario = usuarioLS ? JSON.parse(usuarioLS).id_Usuario : 0;
@@ -227,6 +231,7 @@ const CrearPedido: React.FC = () => {
   const [discountDisabled, setDiscountDisabled] = useState(false);
 
   const [clienteMail, setClienteMail] = useState("");
+  const [telefonoAlternativo, setTelefonoAlternativo] = useState("");
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
@@ -235,18 +240,109 @@ const CrearPedido: React.FC = () => {
     open: false,
     title: "",
     message: "",
-    onConfirm: () => { },
+    onConfirm: () => {},
   });
 
-  const navigate = useNavigate();
-  const [leadIdUI, setLeadIdUI] = useState(location.state?.idLead || null);
-  const [telefonoLeadUI, setTelefonoLeadUI] = useState(location.state?.numeroContacto || null);
+  const [leadIdUI, setLeadIdUI] = useState<string | null>(modo === "venta" ? location.state?.idLead : "sin Id Lead");
+  const [telefonoLeadUI, setTelefonoLeadUI] = useState<string | null>(modo === "venta" ? location.state?.numeroContacto : "sin numero contacto");
+
+  const [leadIdUIfromRecompra, setLeadIdUIfromRecompra] = useState<string | null>(modo === "recompra" ? location.state?.id_Lead : "sin Id Lead");
+  const [telefonoLeadUIfromRecompra, setTelefonoLeadUIfromRecompra] = useState<string | null>(modo === "recompra" ? location.state?.numero_De_Contacto : "sin numero contacto");
 
   useEffect(() => {
     if (location.state) {
       navigate(location.pathname, { replace: true, state: null });
     }
   }, []);
+
+  const fetchDepartamentos = async () => {
+    const url = `${API_BASE_URL}/Location/GetDepartamentoDropDown`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const json = await res.json();
+
+    if (!json?.data) return [];
+
+    const opts = json.data.map((d: any) => ({
+      value: d.idDepartamento,
+      label: d.descripcion,
+    }));
+
+    return opts;
+  };
+
+  const fetchProvinciasByDepartamento = async (idDepartamento: number) => {
+    if (!idDepartamento) return [];
+
+    const url = `${API_BASE_URL}/Location/GetProvinciaDropDown`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ idDepartamento }),
+    });
+
+    const json = await res.json();
+
+    if (!json?.data) return [];
+
+    return json.data.map((p: any) => ({
+      value: p.idProvincia,
+      label: p.descripcion,
+    }));
+  };
+
+  const fetchDistritosByProvincia = async (idProvincia: number) => {
+    if (!idProvincia) return [];
+
+    const url = `${API_BASE_URL}/Location/GetDistritoDropDown`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ idProvincia }),
+    });
+
+    const json = await res.json();
+
+    if (!json?.data) return [];
+
+    return json.data.map((d: any) => ({
+      value: d.idDistrito,
+      label: d.descripcion,
+    }));
+  };
+
+  const fetchNombreProducto = async (idProducto: number) => {
+    if (!idProducto) return null;
+
+    const url = `${API_BASE_URL}/Producto/GetDetalleProductoParaPedido`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ idProducto }),
+    });
+
+    const json = await res.json();
+
+    if (!json?.data) return null;
+
+    return json.data.nombre_Producto || null;
+  };
 
   useEffect(() => {
     const fetchDepartamentos = async () => {
@@ -350,6 +446,128 @@ const CrearPedido: React.FC = () => {
   const handleDistritoChange = (value: any) => {
     setDistritoSel(value);
   };
+
+  function convertirFechaAFormatoInput(fechaString: any) {
+    if (!fechaString) return "";
+
+    const [fecha] = fechaString.split(" "); // "12/11/2025"
+    const [mes, dia, anio] = fecha.split("/");
+
+    return `${anio}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
+  }
+
+  useEffect(() => {
+    // if (modo === "venta") {
+    //   setLeadIdUI(idLeadFromNav);
+    //   setTelefonoLeadUI(telefonoFromNav);
+    //   return;
+    // }
+
+    if (modo === "recompra" && payloadRecompra) {
+      setLeadIdUI(payloadRecompra.id_Lead?.toString() || null);
+      setTelefonoLeadUI(payloadRecompra.numero_De_Contacto || null);
+
+      setNumeroDocumento(payloadRecompra.cliente.numero_Documento || "");
+      setClienteNombre(payloadRecompra.cliente.cliente || "");
+      setClienteMail(payloadRecompra.cliente.mail || "");
+      setTelefonoAlternativo(payloadRecompra.telefono_Alterno || "");
+
+      const td = tipoDocumentoOptions.find(
+        (x) => x.value === payloadRecompra.cliente.id_Tipo_Documento
+      );
+      setTipoDocumento(td || null);
+
+      const cli = payloadRecompra.cliente;
+
+      const tc = tipoComprobanteOptions.find(
+        (x) => x.value === cli.id_Tipo_Comprobante
+      );
+      setTipoComprobante(tc || null);
+
+      const ap = acuerdoPagoOptions.find(
+        (x) => x.value === payloadRecompra.id_Acuerdo_de_Pago
+      );
+      setAcuerdoPago(ap || null);
+
+      const del = payloadRecompra.delivery;
+
+      const te = tipoEntregaOptions.find(
+        (x) => x.value === del.id_Tipo_de_Entrega
+      );
+      setTipoEntrega(te || null);
+
+      const me = medioEnvioOptions.find(
+        (x) => x.value === del.id_Medio_de_Envio
+      );
+      setMedioEnvio(me || null);
+
+      setDireccion(del.direccion_Delivery || "");
+      setReferencia(del.referencia || "");
+      setIndicacionesEntrega(del.indicaciones_De_Entrega || "");
+      setLinkUbicacion(del.link_Geolocalizacion || "");
+
+      if (del.receptor_Autorizado) {
+        setAuthorizedReceiver({ value: "other", label: "Otra persona" });
+        setReceiverName(del.nombre_Receptor_Autorizado || "");
+      } else {
+        setAuthorizedReceiver({ value: "same", label: "Mismo cliente" });
+        setReceiverName("");
+      }
+
+      if (del.fecha_Pactada_Delivery) {
+        const fechaFormateada = convertirFechaAFormatoInput(
+          del.fecha_Pactada_Delivery
+        );
+        setFechaPactada(fechaFormateada);
+      }
+
+      const hp = horarioPactadoOptions.find(
+        (x) => x.value === del.id_Horario_Pactado
+      );
+      setHorarioPactado(hp || null);
+
+      const loadUbigeo = async () => {
+        const departamentos = await fetchDepartamentos();
+        const dpto = departamentos.find((x: any) => x.value === del.id_Departamento);
+        // console.log(dpto);
+        if (dpto) {
+          await handleDepartamentoChange(dpto);
+        }
+
+        const provincias = await fetchProvinciasByDepartamento(del.id_Departamento);
+        const prov = provincias.find((x: any) => x.value === del.id_Provincia);
+        // console.log(prov);
+        if (prov) {
+          await handleProvinciaChange(prov);
+        }
+
+        const distritos = await fetchDistritosByProvincia(del.id_Provincia);
+        const dist = distritos.find((x: any) => x.value === del.id_Distrito);
+        // console.log(dist);
+        if (dist) {
+          setDistritoSel(dist);
+        }
+      };
+
+      loadUbigeo();
+
+      const mapped = payloadRecompra.productos.map((p: any) => ({
+        id: Date.now() + Math.random(),
+        productId: p.id_Producto,
+        productName: p.nombre_Producto,
+        quantity: p.cantidad,
+        priceRegularUnit: p.precio_Regular,
+        pricePromotionalUnit: p.precio_Promocional,
+        discountId: p.id_Descuento_Aplicado,
+        discountPercent: 0,
+        subtotalRegular: p.subtotal_Regular,
+        subtotalPromotional: p.subtotal_Promocional,
+        type: "product" as const,
+      }));
+
+      setCartItems(mapped);
+    }
+  }, [modo, payloadRecompra]);
 
   const handleBuscarCliente = async () => {
     if (!numeroDocumento.trim()) {
@@ -609,7 +827,7 @@ const CrearPedido: React.FC = () => {
 
     const body = {
       id_Lead: leadIdUI,
-      telefono_Alterno: telefonoLeadUI,
+      telefono_Alterno: telefonoAlternativo,
       cantidad_Productos: cartItems.reduce((s, i) => s + i.quantity, 0),
       monto_Total_Regular: totalRegular,
       monto_Total_Promocional: totalPromotional,
@@ -649,10 +867,9 @@ const CrearPedido: React.FC = () => {
         setLoading(true);
 
         try {
-          console.log(body);
+          // console.log(body);
           const res = await PedidoService.insertPedido(body);
 
-          console.log(res);
           if (!res.error) {
             showToast("Pedido registrado correctamente", "success");
 
@@ -696,7 +913,6 @@ const CrearPedido: React.FC = () => {
             setReceiverName("");
 
             setLoading(false);
-
           } else {
             showToast(res.message || "No se pudo registrar el pedido", "error");
           }
@@ -720,7 +936,7 @@ const CrearPedido: React.FC = () => {
             open: false,
             title: "",
             message: "",
-            onConfirm: () => { },
+            onConfirm: () => {},
           })
         }
         onConfirm={confirmConfig.onConfirm}
@@ -746,19 +962,27 @@ const CrearPedido: React.FC = () => {
                       <p className="text-xs font-medium text-emerald-700 uppercase">
                         Lead Seleccionado
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-emerald-900">{leadIdUI}</p>
+                      <p className="mt-1 text-sm font-semibold text-emerald-900">
+                        {modo === "venta" ? leadIdUI : leadIdUIfromRecompra}
+                      </p>
                     </div>
 
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-emerald-700 uppercase">Teléfono</p>
-                      <p className="mt-1 text-sm font-semibold text-emerald-900">{telefonoLeadUI}</p>
+                      <p className="text-xs font-medium text-emerald-700 uppercase">
+                        Teléfono
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-emerald-900">
+                        {modo === "venta" ? telefonoLeadUI : telefonoLeadUIfromRecompra}
+                      </p>
                     </div>
                   </div>
 
                   <div className="space-y-3 mt-6">
-                    <h3 className="text-md font-normal text-slate-900">Datos del Cliente</h3>
+                    <h3 className="text-md font-normal text-slate-900">
+                      Datos del Cliente
+                    </h3>
 
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                           Tipo de Documento <span className="text-red-500">*</span>
@@ -809,21 +1033,6 @@ const CrearPedido: React.FC = () => {
                           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none"
                         />
                       </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-3 mt-2">
-                      {/* <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Teléfono Alternativo
-                        </label>
-                        <input
-                          type="text"
-                          value={telefonoAlternativo}
-                          onChange={(e) => setTelefonoAlternativo(e.target.value)}
-                          placeholder="Número alternativo"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none"
-                        />
-                      </div> */}
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                           Correo
@@ -836,12 +1045,32 @@ const CrearPedido: React.FC = () => {
                           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none"
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 mt-6">
+                    <h3 className="text-md font-normal text-slate-900">
+                      Datos del Pedido
+                    </h3>
+
+                    <div className="grid gap-4 md:grid-cols-2 mt-2">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Teléfono Alternativo
+                        </label>
+                        <input
+                          placeholder="Número alternativo"
+                          type="text"
+                          value={telefonoAlternativo}
+                          onChange={(e) => setTelefonoAlternativo(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none"
+                        />
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                           Tipo de Comprobante <span className="text-red-500">*</span>
                         </label>
                         <ReactSelect
-                          placeholder="Seleccione comprobante"
                           classNamePrefix="rs"
                           value={tipoComprobante}
                           onChange={(v) => setTipoComprobante(v as Option)}
@@ -857,7 +1086,9 @@ const CrearPedido: React.FC = () => {
                 </div>
 
                 <div className="space-y-3 border-b pb-6">
-                  <h3 className="text-md font-normal text-slate-900">Agregar Productos</h3>
+                  <h3 className="text-md font-normal text-slate-900">
+                    Agregar Productos
+                  </h3>
 
                   <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr_1fr] items-end">
                     <div>
@@ -889,7 +1120,9 @@ const CrearPedido: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-1">Nivel de Descuento</label>
+                      <label className="block text-sm font-medium mb-1">
+                        Nivel de Descuento
+                      </label>
                       <ReactSelect
                         classNamePrefix="rs"
                         value={discountLevel}
@@ -913,7 +1146,7 @@ const CrearPedido: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-3 pb-3">
+                <div className="space-y-3 pb-3 grid gap-4 md:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Acuerdo de pago <span className="text-red-500">*</span>
@@ -1032,7 +1265,9 @@ const CrearPedido: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Referencia</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Referencia
+                  </label>
                   <input
                     type="text"
                     value={referencia}
@@ -1062,8 +1297,9 @@ const CrearPedido: React.FC = () => {
                       classNamePrefix="rs"
                       value={authorizedReceiver}
                       onChange={(v) => {
-                        setAuthorizedReceiver(v as Option);
-                        if (v?.value === "same") setReceiverName("");
+                        const value = v as Option;
+                        setAuthorizedReceiver(value);
+                        if (value?.value === "same") setReceiverName("");
                       }}
                       options={[
                         { value: "same", label: "Mismo cliente" },
@@ -1165,7 +1401,7 @@ const CrearPedido: React.FC = () => {
                           <div className="flex justify-between items-start">
                             <div>
                               <p className="text-sm font-semibold">
-                                {item.productName}{" "}
+                                {item.productName || `Producto ${item.productId}`}{" "}
                                 <span className="text-slate-500">
                                   (S/{precioRegular.toFixed(2)})
                                 </span>
@@ -1202,7 +1438,8 @@ const CrearPedido: React.FC = () => {
                             item.items &&
                             item.items.map((p, idx) => {
                               const qtyTotal = p.qtyInternal * item.quantity;
-                              const descUnit = p.pricePromotionalUnit - p.priceRegularUnit;
+                              const descUnit =
+                                p.pricePromotionalUnit - p.priceRegularUnit;
                               const descTotal = descUnit * qtyTotal;
 
                               return (
@@ -1249,8 +1486,9 @@ const CrearPedido: React.FC = () => {
                     <button
                       type="submit"
                       disabled={loading}
-                      className={`w-full rounded-xl bg-emerald-700 text-white py-2.5 text-sm font-semibold hover:bg-emerald-800 ${loading ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
+                      className={`w-full rounded-xl bg-emerald-700 text-white py-2.5 text-sm font-semibold hover:bg-emerald-800 ${
+                        loading ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     >
                       {loading ? "Procesando..." : "Crear Pedido"}
                     </button>

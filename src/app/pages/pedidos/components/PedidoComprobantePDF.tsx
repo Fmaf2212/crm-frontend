@@ -1,8 +1,3 @@
-// ===========================================
-//   PDF COMPACTADO • TOTALMENTE OPTIMIZADO
-//   PARA KENNY + ZOILA (SIN ELIMINAR CAMPOS)
-// ===========================================
-
 import {
   Document,
   Page,
@@ -124,7 +119,7 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
   const subtotal = Number(data.monto_Total_Regular ?? 0);
   const descuento = subtotal - Number(data.monto_Total_Promocional ?? 0);
   const envio = Number(data.precioDelivery ?? 0);
-  const total = Number(data.monto_Total_Promocional ?? 0) + envio;
+  const total = Number(data.monto_Total_Promocional ?? 0)
   const diferenciaPorPagar = Number(data.diferencia_Por_Pagar ?? 0);
 
   return (
@@ -196,7 +191,7 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Teléfono:</Text>
                   <Text style={styles.value}>
-                    {data?.telefono_Alterno || "—"}
+                    {lead.numero_De_Contacto || "—"}
                   </Text>
                 </View>
 
@@ -219,9 +214,7 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
 
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Teléfono Alternativo:</Text>
-                  <Text style={styles.value}>
-                    {data?.numero_De_Contacto?.trim() || "—"}
-                  </Text>
+                  <Text style={styles.value}>{data?.telefono_Alterno}</Text>
                 </View>
 
                 <View style={styles.rowBlockInput}>
@@ -332,9 +325,7 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
             <Text style={styles.resumenTexto}>
               Subtotal: S/ {subtotal.toFixed(2)}
             </Text>
-            <Text style={styles.resumenTexto}>
-              Desc: -S/ {descuento.toFixed(2)}
-            </Text>
+            <Text style={styles.resumenTexto}>Desc: {descuento > 0 ? `-S/ ${descuento.toFixed(2)}` : 'S/ 0.00'}</Text>
             <Text style={styles.resumenTexto}>Envío: S/ {envio.toFixed(2)}</Text>
             <Text style={styles.resumenTotal}>Total: S/ {total.toFixed(2)}</Text>
           </View>
@@ -355,7 +346,7 @@ const PedidoComprobantePDF: React.FC<PedidoComprobanteProps> = ({ data }) => {
                 <View style={styles.rowBlockInput}>
                   <Text style={styles.label}>Acuerdo de pago:</Text>
                   <Text style={styles.value}>
-                    {data.acuerdo_De_Pago || "—"}
+                    {data.acuerdo_de_Pago || "—"}
                   </Text>
                 </View>
               </View>

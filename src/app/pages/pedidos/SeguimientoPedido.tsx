@@ -10,6 +10,8 @@ import ActualizarPagoModal from "./components/ActualizarPagoModal";
 import ActualizarEstadosModal from "./components/ActualizarEstadosModal";
 import ActualizarFacturacionModal from "./components/ActualizarFacturacionModal";
 import type { EstadoOperacion, EstadoFacturacion } from "@/types/EstadosPedido";
+import PedidoComprobanteMultiplePDF from "./components/PedidoComprobanteMultiplePDF";
+import { pdf } from "@react-pdf/renderer";
 
 type EstadoPago =
   | "Pendiente"
@@ -222,6 +224,8 @@ const SeguimientoPedido: React.FC = () => {
     PagoAgregadoTemp[]
   >([]);
 
+  const [loadingPdf, setLoadingPdf] = useState(false);
+
   const abrirModalFacturacion = (p: Pedido) => {
     setPedidoFacturacionSeleccionado(p);
     setModalFacturacionOpen(true);
@@ -273,6 +277,7 @@ const buildRequestBody = () => {
     size: PAGE_SIZE,         // ← 5 POR PÁGINA
 
     id_Pedido: 0,
+    id_Asesor_Actual: esAsesor ? userLS.id_Usuario : 0,
     Cliente: clienteSearch,
     numero_De_Contacto: telefonoSearch,
     id_Estado_Operacion_Actual: op,
@@ -426,10 +431,55 @@ const fetchPedidos = async () => {
     filtered.every((p) => selectedCodigos.includes(p.codigo));
 
   const toggleAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedCodigos(filtered.map((p) => p.codigo));
-    } else {
-      setSelectedCodigos([]);
+    const codigosPagina = filtered.map((p) => p.codigo);
+
+    setSelectedCodigos((prev) => {
+      if (checked) {
+        // Agregar los de esta página sin perder los anteriores
+        return Array.from(new Set([...prev, ...codigosPagina]));
+      } else {
+        // Quitar solo los códigos de esta página, NO todos
+        return prev.filter((c) => !codigosPagina.includes(c));
+      }
+    });
+  };
+
+  const handleImprimirOrdenes = async () => {
+    if (!hasSelection) return;
+
+    try {
+      setLoadingPdf(true);
+
+      // 1. Traer la data completa de cada pedido seleccionado
+      const pedidosData = [];
+
+      for (const codigo of selectedCodigos) {
+        const res = await PedidoService.getDetallePedido(Number(codigo));
+        if (res?.data) pedidosData.push(res.data);
+      }
+
+      if (pedidosData.length === 0) {
+        console.warn("No se pudo obtener data de pedidos.");
+        return;
+      }
+
+      // 2. Generar el PDF múltiple
+      const blob = await pdf(
+        <PedidoComprobanteMultiplePDF pedidos={pedidosData} />
+      ).toBlob();
+
+      // 3. Forzar descarga
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Ordenes_${selectedCodigos.length}.pdf`;
+      a.click();
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error generando PDF múltiple:", err);
+    } finally {
+      setLoadingPdf(false);
     }
   };
 
@@ -510,15 +560,18 @@ const fetchPedidos = async () => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
+                onClick={handleImprimirOrdenes}
                 className={
                   hasSelection
                     ? "inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm text-white"
                     : "inline-flex items-center gap-2 rounded-xl bg-slate-100 px-5 py-2.5 text-sm text-emerald-300 border border-emerald-100 cursor-not-allowed"
                 }
-                disabled={!hasSelection}
+                disabled={!hasSelection || loadingPdf}
               >
                 <Printer className="w-4 h-4" />
-                Imprimir Órdenes: {selectedCodigos.length}
+                {loadingPdf
+                  ? "Generando PDF..."
+                  : `Imprimir Órdenes: ${selectedCodigos.length}`}
               </button>
             </div>
             <div className="grid gap-3 md:grid-cols-[1.2fr_1.2fr_1.2fr_auto]">
@@ -702,158 +755,159 @@ const fetchPedidos = async () => {
 
           <div className="flex flex-col gap-4 bg-white px-6 py-5">
 
-            <div className="border border-slate-200 rounded-2xl overflow-x-auto">
-              <table className="w-full text-xs md:text-sm">
-                <thead className="bg-slate-50 text-slate-600">
-                  <tr>
-                    <th className="py-3 px-2">
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={(e) =>
-                          toggleAll(e.target.checked)
-                        }
-                      />
-                    </th>
-                    <th className="py-3 px-2">Código</th>
-                    <th className="py-3 px-2">Cliente</th>
-                    <th className="py-3 px-2">Total</th>
-                    <th className="py-3 px-2">Asesor</th>
-                    <th className="py-3 px-2">Estado Pedido</th>
-                    <th className="py-3 px-2">Estado Facturación</th>
-                    <th className="py-3 px-2">Fecha Ingreso</th>
-                    <th className="py-3 px-2">Fecha Confirmación</th>
-                    <th className="py-3 px-2">Fecha Pactada</th>
-                    <th className="py-3 px-2">Fecha Entrega</th>
-                    {!esAsesor && <th className="py-3 px-2">Pago</th>}
-                    {!esAsesor && <th className="py-3 px-2">Facturación</th>}
-                    <th className="py-3 px-2">Gestión</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filtered.map((p) => (
-                    <tr
-                      key={p.codigo}
-                      className="border-b border-slate-100 text-sm"
-                    >
-                      <td className="py-3 px-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedCodigos.includes(
-                            p.codigo
-                          )}
-                          onChange={() =>
-                            toggleSeleccion(p.codigo)
-                          }
-                        />
-                      </td>
-                      <td className="py-3 px-2">
-                        <span className="font-semibold text-slate-800">
-                          {p.codigo}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2">
-                        <div className="flex flex-col">
-                          <span className="text-slate-800">
-                            {p.cliente}
-                          </span>
-                          <span className="text-[11px] text-slate-500">
-                            {p.telefono}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-2 text-slate-800">
-                        S/ {p.total.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-2 text-slate-700">
-                        {p.asesor}
-                      </td>
-                      <td className="py-3 px-2">
-                        <span className={formatBadge(p.estadoPedido)}>
-                          {p.estadoPedido}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2">
-                        <span
-                          className={formatBadgeFacturacion(
-                            p.estadoFacturacion
-                          )}
-                        >
-                          {p.estadoFacturacion}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-slate-700">
-                        {formatearFecha(p.fechaIngreso) || "-"}
-                      </td>
-                      <td className="py-3 px-2 text-slate-700">
-                        {formatearFecha(p.fechaConfirmacion) || "-"}
-                      </td>
-                      <td className="py-3 px-2 text-slate-700">
-                        {formatearFecha(p.fechaPactada) || "-"}
-                      </td>
-                      <td className="py-3 px-2 text-slate-700">
-                        {formatearFecha(p.fechaEntrega) || "-"}
-                      </td>
-                      {!esAsesor && (
-                        <td className="py-3 px-2">
-                          <button
-                            type="button"
-                            disabled={!CONTROLES_HABILITADOS}
-                            onClick={() => CONTROLES_HABILITADOS && abrirModalPago(p)}
-                            className={
-                              CONTROLES_HABILITADOS
-                                ? "text-xs rounded-full bg-indigo-50 px-3 py-1 text-indigo-600 hover:bg-indigo-100 border border-indigo-100"
-                                : "text-xs rounded-full bg-slate-100 px-3 py-1 text-slate-400 border border-slate-200 cursor-not-allowed"
+            <div className="w-full overflow-x-auto">
+              <div className="min-w-[1300px] border border-slate-200 rounded-2xl">
+                <div className="max-h-[65vh] overflow-y-auto overflow-auto">
+                  <table className="w-full text-[11px] md:text-sm">
+                    <thead className="bg-slate-50 text-slate-600 sticky top-0 z-10">
+                      <tr>
+                        <th className="py-3 px-2">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            onChange={(e) =>
+                              toggleAll(e.target.checked)
                             }
-                          >
-                            Actualizar Pago
-                          </button>
-                        </td>
-                      )}
-                      {!esAsesor && (
-                        <td className="py-3 px-2">
-                          <button
-                            type="button"
-                            disabled={!CONTROLES_HABILITADOS}
-                            onClick={() => CONTROLES_HABILITADOS && abrirModalFacturacion(p)}
-                            className={
-                              CONTROLES_HABILITADOS
-                                ? "text-xs rounded-full bg-amber-50 px-3 py-1 text-amber-600 hover:bg-amber-100 border border-amber-100"
-                                : "text-xs rounded-full bg-slate-100 px-3 py-1 text-slate-400 border border-slate-200 cursor-not-allowed"
-                            }
-                          >
-                            Actualizar Facturación
-                          </button>
-                        </td>
-                      )}
-                      <td className="py-3 px-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            abrirModalActualizarEstados(p)
-                          }
-                          className="text-xs rounded-full bg-emerald-50 px-3 py-1 text-emerald-600 hover:bg-emerald-100 border border-emerald-100"
-                        >
-                          Actualizar Estados
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                          />
+                        </th>
+                        <th className="py-3 px-2">Código</th>
+                        <th className="py-3 px-2">Cliente</th>
+                        <th className="py-3 px-2">Total</th>
+                        <th className="py-3 px-2">Asesor</th>
+                        <th className="py-3 px-2">Estado Pedido</th>
+                        <th className="py-3 px-2">Estado Facturación</th>
+                        <th className="py-3 px-2 min-w-[100px]">Fecha Ingreso</th>
+                        <th className="py-3 px-2 min-w-[100px]">Fecha Confirmación</th>
+                        <th className="py-3 px-2 min-w-[100px]">Fecha Pactada</th>
+                        <th className="py-3 px-2 min-w-[100px]">Fecha Entrega</th>
+                        {!esAsesor && <th className="py-3 px-2">Pago</th>}
+                        {!esAsesor && <th className="py-3 px-2">Facturación</th>}
+                        <th className="py-3 px-2">Gestión</th>
+                      </tr>
+                    </thead>
 
-                  {filtered.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={13}
-                        className="py-6 text-center text-slate-500"
-                      >
-                        No se encontraron pedidos con los filtros
-                        actuales.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    <tbody>
+                      {filtered.map((p) => (
+                        <tr
+                          key={p.codigo}
+                          className="border-b border-slate-100 text-sm"
+                        >
+                          <td className="py-3 px-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedCodigos.includes(
+                                p.codigo
+                              )}
+                              onChange={() =>
+                                toggleSeleccion(p.codigo)
+                              }
+                            />
+                          </td>
+                          <td className="py-3 px-2">
+                            <span className="font-semibold text-slate-800">
+                              {p.codigo}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2">
+                            <div className="flex flex-col">
+                              <span className="text-slate-800">
+                                {p.cliente}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-2 whitespace-nowrap text-slate-800">
+                            S/ {p.total.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-2 text-slate-700">
+                            {p.asesor}
+                          </td>
+                          <td className="py-3 px-2">
+                            <span className={formatBadge(p.estadoPedido)}>
+                              {p.estadoPedido}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2">
+                            <span
+                              className={formatBadgeFacturacion(
+                                p.estadoFacturacion
+                              )}
+                            >
+                              {p.estadoFacturacion}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2 text-slate-700 text-center">
+                            {formatearFecha(p.fechaIngreso) || "-"}
+                          </td>
+                          <td className="py-3 px-2 text-slate-700 text-center">
+                            {formatearFecha(p.fechaConfirmacion) || "-"}
+                          </td>
+                          <td className="py-3 px-2 text-slate-700 text-center">
+                            {formatearFecha(p.fechaPactada) || "-"}
+                          </td>
+                          <td className="py-3 px-2 text-slate-700 text-center">
+                            {formatearFecha(p.fechaEntrega) || "-"}
+                          </td>
+                          {!esAsesor && (
+                            <td className="py-3 px-2">
+                              <button
+                                type="button"
+                                disabled={!CONTROLES_HABILITADOS}
+                                onClick={() => CONTROLES_HABILITADOS && abrirModalPago(p)}
+                                className={
+                                  CONTROLES_HABILITADOS
+                                    ? "text-xs rounded-full bg-indigo-50 px-3 py-1 text-indigo-600 hover:bg-indigo-100 border border-indigo-100"
+                                    : "text-xs rounded-full bg-slate-100 px-3 py-1 text-slate-400 border border-slate-200 cursor-not-allowed"
+                                }
+                              >
+                                Actualizar Pago
+                              </button>
+                            </td>
+                          )}
+                          {!esAsesor && (
+                            <td className="py-3 px-2">
+                              <button
+                                type="button"
+                                disabled={!CONTROLES_HABILITADOS}
+                                onClick={() => CONTROLES_HABILITADOS && abrirModalFacturacion(p)}
+                                className={
+                                  CONTROLES_HABILITADOS
+                                    ? "text-xs rounded-full bg-amber-50 px-3 py-1 text-amber-600 hover:bg-amber-100 border border-amber-100"
+                                    : "text-xs rounded-full bg-slate-100 px-3 py-1 text-slate-400 border border-slate-200 cursor-not-allowed"
+                                }
+                              >
+                                Actualizar Facturación
+                              </button>
+                            </td>
+                          )}
+                          <td className="py-3 px-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                abrirModalActualizarEstados(p)
+                              }
+                              className="text-xs rounded-full bg-emerald-50 px-3 py-1 text-emerald-600 hover:bg-emerald-100 border border-emerald-100"
+                            >
+                              Actualizar Estados
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+
+                      {filtered.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={13}
+                            className="py-6 text-center text-slate-500"
+                          >
+                            No se encontraron pedidos con los filtros
+                            actuales.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
               <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-gray-500">
 
                 <div>

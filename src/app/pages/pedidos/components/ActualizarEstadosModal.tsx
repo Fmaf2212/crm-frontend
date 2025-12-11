@@ -17,12 +17,15 @@ import {
 } from "lucide-react";
 import ReactSelect from "react-select";
 import { PedidoService } from "@/services/pedidoService";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import { PDFDownloadLink, pdf } from "@react-pdf/renderer";
 import PedidoComprobantePDF from "./PedidoComprobantePDF";
 import { Toast } from "@/components/ui/toast";
 import { ConfirmModal } from "@/components/ui/confirmModal";
 
 import type { EstadoOperacion, EstadoFacturacion } from "@/types/EstadosPedido";
+import EtiquetaEnvioPDF from "./EtiquetaEnvioPDF";
+import JsBarcode from "jsbarcode";
+import QRCode from "qrcode";
 
 type EstadoPago =
   | "Pendiente"
@@ -119,7 +122,7 @@ const ActualizarEstadosModal: React.FC<Props> = ({
   onClose,
   pedido,
   onSave,
-  onUpdated, 
+  onUpdated,
 }) => {
   const [detalle, setDetalle] = useState<any>(null);
 
@@ -162,6 +165,93 @@ const ActualizarEstadosModal: React.FC<Props> = ({
     message: "",
     onConfirm: () => { },
   });
+
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [loadingEtiqueta, setLoadingEtiqueta] = useState(false);
+
+  const etiquetaMock = {
+    numeroOrden: "ORD-2025-00125",
+    nombreDestinatario: "María López Vargas",
+    dni: "45879632",
+    telefono: "+51 987 456 123",
+    direccion: "Av. Primavera 123 - Surco",
+    provincia: "Lima",
+    distrito: "Santiago de Surco",
+    agencia: "Shalom",
+    peso: "0.85 kg",
+    fechaEnvio: "27/10/2025",
+    fechaEntrega: "29/10/2025",
+    estado: "EN PREPARACIÓN",
+    tracking: "SN-000125",
+  };
+
+  function generarCode128Base64(tracking: string): string {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    JsBarcode(svg, tracking, {
+      format: "code128",
+      displayValue: false,
+      margin: 0,
+      height: 40,
+    });
+
+    const str = new XMLSerializer().serializeToString(svg);
+    return `data:image/svg+xml;base64,${btoa(str)}`;
+  }
+
+  async function generarQRBase64(tracking: string): Promise<string> {
+    return await QRCode.toDataURL(
+      `https://santanatura.com.pe/tracking/${tracking}`,
+      { margin: 0, scale: 4 }
+    );
+  }
+
+  const handleImprimirEtiqueta = async () => {
+    try {
+      if (!detalle) {
+        showToastLocal("No hay datos del pedido para generar la etiqueta.", "error");
+        return;
+      }
+
+      setLoadingEtiqueta(true);
+
+      // ============================
+      // MAPEO DE DATA REAL DEL API
+      // ============================
+      const dataReal = {
+        numeroOrden: detalle.id_Pedido,
+        nombre: detalle.detalleClientePorPedido?.cliente || "-",
+        dni: detalle.detalleClientePorPedido?.numero_Documento || "-",
+        telefono:
+          detalle.detalleLeadPorPedido?.numero_De_Contacto ??
+          detalle.telefono_Alterno ??
+          "-",
+        direccion: detalle.detalleDeliveryPorPedido?.direccion_Delivery || "-",
+        provincia: detalle.detalleDeliveryPorPedido?.provincia || "-",
+        distrito: detalle.detalleDeliveryPorPedido?.distrito || "-",
+        agencia: detalle.detalleDeliveryPorPedido?.medio_de_Envio || "-",
+        tipoEntrega: detalle.detalleDeliveryPorPedido?.tipo_de_Entrega || "-",
+      };
+
+      // ============================
+      // GENERAR PDF BAJO DEMANDA
+      // ============================
+      const blob = await pdf(<EtiquetaEnvioPDF data={dataReal} />).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+
+      a.href = url;
+      a.download = `Etiqueta_Envio_${detalle.id_Pedido}.pdf`;
+      a.click();
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error generando etiqueta:", err);
+      showToastLocal("Hubo un error al generar la etiqueta.", "error");
+    } finally {
+      setLoadingEtiqueta(false);
+    }
+  };
 
   // ==================================
   //       CARGAR DETALLE REAL
@@ -270,6 +360,59 @@ const ActualizarEstadosModal: React.FC<Props> = ({
 
     return `${dia}/${mes}/${año} ${horas}:${minutos}:${segundos} ${ampm}`;
   };
+
+  const handleCompartirWhatsApp = () => {
+    const rawTelefono =
+      detalle?.detalleLeadPorPedido?.numero_De_Contacto ??
+      detalle?.telefono_Alterno ??
+      "";
+
+    const telefono = formatearTelefonoPeru(rawTelefono);
+console.log(telefono);
+    if (!telefono) {
+      showToastLocal(
+        "El Lead no tiene un número de contacto asociado.",
+        "error"
+      );
+      return;
+    }
+
+    const mensaje = `
+      📦 *Detalle del Pedido*
+
+      *N° Orden:* ${detalle.id_Pedido}
+      *Cliente:* ${detalle.detalleClientePorPedido.cliente}
+      *Teléfono:* +51 ${telefono}
+      *Dirección:* ${detalle.detalleDeliveryPorPedido.direccion_Delivery}
+      ${detalle.detalleDeliveryPorPedido.distrito}, ${detalle.detalleDeliveryPorPedido.provincia}
+
+      *Estado actual:* ${detalle.estatus_Operacion}
+    `.trim();
+
+    const texto = encodeURIComponent(mensaje);
+
+    // Enviar directo al número del cliente
+    window.open(`https://wa.me/51${telefono}?text=${texto}`, "_blank");
+  };
+
+  function formatearTelefonoPeru(numero: string): string {
+    if (!numero) return "";
+
+    // Elimina espacios, guiones u otros símbolos
+    let clean = numero.replace(/\D/g, "");
+
+    // Si empieza con 51 y tiene 11 dígitos → 51987654321
+    if (clean.startsWith("51") && clean.length === 11) {
+      clean = clean.substring(2); // deja solo 987654321
+    }
+
+    // Si tiene 9 dígitos → lo dejamos como celular peruano válido
+    if (clean.length === 9) {
+      return clean;
+    }
+
+    return ""; // inválido
+  }
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-40 top-[-16px]">
@@ -418,18 +561,18 @@ const ActualizarEstadosModal: React.FC<Props> = ({
 
               <p className="text-xs text-gray-500 mt-1">Nombre completo</p>
               <p className="text-sm">
-                {detalle?.detalleClientePorPedido?.cliente}
+                {detalle?.detalleClientePorPedido?.cliente || "-"}
               </p>
 
               <p className="text-xs text-gray-500 mt-2">Documento</p>
               <p className="text-sm">
-                {detalle?.detalleClientePorPedido?.tipo_Documento}:{" "}
+                {detalle?.detalleClientePorPedido?.tipo_Documento || "-"}:{" "}
                 {detalle?.detalleClientePorPedido?.numero_Documento}
               </p>
 
               <p className="text-xs text-gray-500 mt-2">Teléfono</p>
               <p className="text-sm">
-                +51 {detalle?.detalleLeadPorPedido?.numero_De_Contacto}
+                {detalle?.detalleLeadPorPedido?.numero_De_Contacto || "-"}
               </p>
             </div>
 
@@ -442,17 +585,17 @@ const ActualizarEstadosModal: React.FC<Props> = ({
 
               <p className="text-xs text-gray-500">Asesor</p>
               <p className="text-sm">
-                {detalle?.detalleLeadPorPedido?.asesor}
+                {detalle?.detalleLeadPorPedido?.asesor || "-"}
               </p>
 
               <p className="text-xs text-gray-500 mt-2">Supervisor</p>
               <p className="text-sm">
-                {detalle?.detalleLeadPorPedido?.supervisor}
+                {detalle?.detalleLeadPorPedido?.supervisor || "-"}
               </p>
 
               <p className="text-xs text-gray-500 mt-2">Medio</p>
               <p className="text-sm">
-                {detalle?.detalleLeadPorPedido?.medio_Registro_Lead}
+                {detalle?.detalleLeadPorPedido?.medio_Registro_Lead || "-"}
               </p>
             </div>
 
@@ -467,37 +610,37 @@ const ActualizarEstadosModal: React.FC<Props> = ({
                 <>
                   <p className="text-xs text-gray-500 mt-1">Tipo de entrega</p>
                   <p className="text-sm">
-                    {detalle.detalleDeliveryPorPedido.tipo_de_Entrega}
+                    {detalle.detalleDeliveryPorPedido.tipo_de_Entrega || "-"}
                   </p>
 
                   <p className="text-xs text-gray-500 mt-2">Dirección</p>
                   <p className="text-sm">
-                    {detalle.detalleDeliveryPorPedido.direccion_Delivery}
+                    {detalle.detalleDeliveryPorPedido.direccion_Delivery || "-"}
                   </p>
 
                   <p className="text-xs text-gray-500 mt-2">Provincia</p>
                   <p className="text-sm">
-                    {detalle.detalleDeliveryPorPedido.provincia}
+                    {detalle.detalleDeliveryPorPedido.provincia || "-"}
                   </p>
 
                   <p className="text-xs text-gray-500 mt-2">Distrito</p>
                   <p className="text-sm">
-                    {detalle.detalleDeliveryPorPedido.distrito}
+                    {detalle.detalleDeliveryPorPedido.distrito || "-"}
                   </p>
 
                   <p className="text-xs text-gray-500 mt-2">Medio de Envío</p>
                   <p className="text-sm">
-                    {detalle.detalleDeliveryPorPedido.medio_de_Envio}
+                    {detalle.detalleDeliveryPorPedido.medio_de_Envio || "-"}
                   </p>
 
                   <p className="text-xs text-gray-500 mt-2">Fecha Pactada</p>
                   <p className="text-sm">
-                    {detalle.detalleDeliveryPorPedido.fecha_Pactada_Delivery}
+                    {detalle.detalleDeliveryPorPedido.fecha_Pactada_Delivery || "-"}
                   </p>
 
                   <p className="text-xs text-gray-500 mt-2">Horario Pactado</p>
                   <p className="text-sm">
-                    {detalle.detalleDeliveryPorPedido.horario_Pactado}
+                    {detalle.detalleDeliveryPorPedido.horario_Pactado || "-"}
                   </p>
                 </>
               ) : (
@@ -616,8 +759,7 @@ const ActualizarEstadosModal: React.FC<Props> = ({
                   <span>
                     S/{" "}
                     {(
-                      Number(detalle.monto_Total_Promocional || 0) +
-                      Number(detalle.precioDelivery || 0)
+                      Number(detalle.monto_Total_Promocional || 0)
                     ).toFixed(2)}
                   </span>
                 </div>
@@ -626,40 +768,62 @@ const ActualizarEstadosModal: React.FC<Props> = ({
           </div>
 
           {/* =============================
-              BOTONES ACCIÓN
+              BOTONES ACCIÓN (VERSIÓN FINAL)
           ============================= */}
 
-          {/* === TODO ORIGINAL === */}
           <div className="flex flex-wrap gap-3 justify-center">
-            {detalle && (
-              <PDFDownloadLink
-                document={<PedidoComprobantePDF data={detalle} />}
-                fileName={`Comprobante_${pedido.codigo}.pdf`}
-              >
-                {({ loading }) => (
-                  <button
-                    type="button"
-                    className="flex gap-1 items-center justify-center rounded-md bg-emerald-700 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-800"
-                  >
-                    <Printer size={16} color="#fff" />
-                    {loading ? "Generando PDF..." : "Imprimir Comprobante"}
-                  </button>
-                )}
-              </PDFDownloadLink>
-            )}
-
+            {/* ====== BOTÓN IMPRIMIR COMPROBANTE ====== */}
             <button
               type="button"
-              disabled={esAsesor}
-              className={`flex gap-1 items-center justify-center rounded-md px-5 py-2 text-xs font-semibold text-white shadow-sm
-                        ${esAsesor ? "bg-gray-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+              disabled={pdfLoading}
+              onClick={async () => {
+                try {
+                  setPdfLoading(true);
+
+                  // Genera el PDF bajo demanda (NO bloquea el modal)
+                  const blob = await pdf(
+                    <PedidoComprobantePDF data={detalle} />
+                  ).toBlob();
+
+                  const url = URL.createObjectURL(blob);
+
+                  // Fuerza la descarga del PDF
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `Comprobante_${pedido.codigo}.pdf`;
+                  a.click();
+
+                  URL.revokeObjectURL(url);
+                  setPdfLoading(false);
+                } catch (err) {
+                  console.error("Error generando PDF:", err);
+                  setPdfLoading(false);
+                }
+              }}
+              className={`flex gap-1 items-center justify-center rounded-md px-5 py-2 text-xs font-semibold text-white shadow-sm 
+      ${pdfLoading ? "bg-emerald-400 cursor-not-allowed" : "bg-emerald-700 hover:bg-emerald-800"}`}
             >
-              <Tag size={16} color="#fff" />
-              Imprimir Etiqueta Envío
+              <Printer size={16} color="#fff" />
+              {pdfLoading ? "Generando PDF..." : "Imprimir Comprobante"}
             </button>
 
+            {/* ===== BOTÓN ETIQUETA ===== */}
             <button
               type="button"
+              onClick={handleImprimirEtiqueta}
+              disabled={esAsesor || loadingEtiqueta}
+              className={`flex gap-1 items-center justify-center rounded-md px-5 py-2 text-xs font-semibold text-white shadow-sm
+  ${esAsesor ? "bg-gray-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+            >
+              <Tag size={16} color="#fff" />
+
+              {loadingEtiqueta ? "Generando..." : "Imprimir Etiqueta Envío"}
+            </button>
+
+            {/* ===== BOTÓN WHATSAPP ===== */}
+            <button
+              type="button"
+              onClick={handleCompartirWhatsApp}
               className="flex gap-1 items-center justify-center rounded-md bg-emerald-500 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-600"
             >
               <Share2 size={16} color="#fff" />

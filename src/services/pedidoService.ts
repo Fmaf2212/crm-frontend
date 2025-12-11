@@ -117,4 +117,19 @@ export const PedidoService = {
     return res.json();
   },
 
+
+  getPedidoParaRecompra: async (id_Pedido: number) => {
+    const url = `${API_BASE_URL}/Pedido/GetPedidoParaRecompra`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id_Pedido }),
+    });
+
+    return res.json();
+  },
 };
