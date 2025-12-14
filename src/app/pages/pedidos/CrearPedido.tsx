@@ -962,7 +962,7 @@ const CrearPedido: React.FC = () => {
                       <p className="text-xs font-medium text-emerald-700 uppercase">
                         Lead Seleccionado
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-emerald-900">
+                      <p className="mt-1 text-sm font-semibold text-emerald-900 notranslate">
                         {modo === "venta" ? leadIdUI : leadIdUIfromRecompra}
                       </p>
                     </div>
@@ -971,7 +971,7 @@ const CrearPedido: React.FC = () => {
                       <p className="text-xs font-medium text-emerald-700 uppercase">
                         Teléfono
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-emerald-900">
+                      <p className="mt-1 text-sm font-semibold text-emerald-900 notranslate">
                         {modo === "venta" ? telefonoLeadUI : telefonoLeadUIfromRecompra}
                       </p>
                     </div>
@@ -1010,7 +1010,7 @@ const CrearPedido: React.FC = () => {
                             type="text"
                             value={numeroDocumento}
                             onChange={(e) => setNumeroDocumento(e.target.value)}
-                            className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none"
+                            className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none notranslate"
                           />
                           <button
                             type="button"
@@ -1042,7 +1042,7 @@ const CrearPedido: React.FC = () => {
                           type="email"
                           value={clienteMail}
                           onChange={(e) => setClienteMail(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none notranslate"
                         />
                       </div>
                     </div>
@@ -1063,7 +1063,7 @@ const CrearPedido: React.FC = () => {
                           type="text"
                           value={telefonoAlternativo}
                           onChange={(e) => setTelefonoAlternativo(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none notranslate"
                         />
                       </div>
                       <div>
@@ -1246,7 +1246,7 @@ const CrearPedido: React.FC = () => {
                       type="text"
                       value={direccion}
                       onChange={(e) => setDireccion(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm notranslate"
                     />
                   </div>
                 </div>
@@ -1352,11 +1352,11 @@ const CrearPedido: React.FC = () => {
                       type="date"
                       value={fechaPactada}
                       onChange={(e) => setFechaPactada(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm notranslate"
                     />
                   </div>
 
-                  <div>
+                  <div className="notranslate">
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Horario Pactado <span className="text-red-500">*</span>
                     </label>
@@ -1402,18 +1402,18 @@ const CrearPedido: React.FC = () => {
                             <div>
                               <p className="text-sm font-semibold">
                                 {item.productName || `Producto ${item.productId}`}{" "}
-                                <span className="text-slate-500">
-                                  (S/{precioRegular.toFixed(2)})
+                                <span className="text-slate-500 notranslate">
+                                  (S/ {precioRegular.toFixed(2)})
                                 </span>
                               </p>
                               <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
                                 {item.quantity} x |
-                                <span className="text-emerald-700 font-semibold">
-                                  S/{precioPromo.toFixed(2)}
+                                <span className="text-emerald-700 font-semibold notranslate">
+                                  S/ {precioPromo.toFixed(2)}
                                 </span>
                                 | Descuento:
-                                <span className="text-red-600 font-semibold">
-                                  S/{descuentoTotal.toFixed(2)}
+                                <span className="text-red-600 font-semibold notranslate">
+                                  S/ {descuentoTotal.toFixed(2)}
                                 </span>
                               </p>
                             </div>
@@ -1447,18 +1447,18 @@ const CrearPedido: React.FC = () => {
                                   key={idx}
                                   className="mt-2 pl-3 border-l border-emerald-200"
                                 >
-                                  <p className="text-xs text-slate-700 font-medium">
+                                  <p className="text-xs text-slate-700 font-medium notranslate">
                                     {qtyTotal} x {p.name}{" "}
-                                    <span className="text-slate-500">
-                                      (S/{p.priceRegularUnit.toFixed(2)})
+                                    <span className="text-slate-500 notranslate">
+                                      (S/ {p.priceRegularUnit.toFixed(2)})
                                     </span>{" "}
                                     |
-                                    <span className="text-emerald-700 font-semibold">
-                                      S/{p.pricePromotionalUnit.toFixed(2)}
+                                    <span className="text-emerald-700 font-semibold notranslate">
+                                      S/ {p.pricePromotionalUnit.toFixed(2)}
                                     </span>{" "}
                                     | Descuento:
-                                    <span className="text-red-600 font-semibold">
-                                      S/{descTotal.toFixed(2)}
+                                    <span className="text-red-600 font-semibold notranslate">
+                                      S/ {descTotal.toFixed(2)}
                                     </span>
                                   </p>
                                 </div>
@@ -1467,11 +1467,11 @@ const CrearPedido: React.FC = () => {
 
                           <div className="pt-2 border-t flex justify-between text-sm font-semibold">
                             <span>Subtotal:</span>
-                            <span>
-                              <span className="line-through text-slate-400 mr-2">
-                                S/{item.subtotalRegular.toFixed(2)}
+                            <span className="notranslate">
+                              <span className="line-through text-slate-400 mr-2 notranslate">
+                                S/ {item.subtotalRegular.toFixed(2)}
                               </span>
-                              S/{item.subtotalPromotional.toFixed(2)}
+                              S/ {item.subtotalPromotional.toFixed(2)}
                             </span>
                           </div>
                         </div>
@@ -1480,7 +1480,7 @@ const CrearPedido: React.FC = () => {
 
                     <div className="border-t pt-4 flex justify-between text-lg font-semibold">
                       <span>Total:</span>
-                      <span>S/{totalPromotional.toFixed(2)}</span>
+                      <span className="notranslate">S/ {totalPromotional.toFixed(2)}</span>
                     </div>
 
                     <button

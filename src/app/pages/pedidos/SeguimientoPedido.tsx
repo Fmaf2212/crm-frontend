@@ -571,7 +571,7 @@ const fetchPedidos = async () => {
                 <Printer className="w-4 h-4" />
                 {loadingPdf
                   ? "Generando PDF..."
-                  : `Imprimir Órdenes: ${selectedCodigos.length}`}
+                  : <span className="notranslate">Imprimir Órdenes: {selectedCodigos.length}</span>}
               </button>
             </div>
             <div className="grid gap-3 md:grid-cols-[1.2fr_1.2fr_1.2fr_auto]">
@@ -623,6 +623,7 @@ const fetchPedidos = async () => {
                   Estado del Pedido
                 </label>
                 <ReactSelect
+                  classNamePrefix="rs notranslate"
                   isMulti
                   options={estadoPedidoOptions}
                   value={estadoPedidoSelected}
@@ -641,6 +642,7 @@ const fetchPedidos = async () => {
                 </label>
                 <ReactSelect
                   isMulti
+                  classNamePrefix="rs notranslate"
                   options={estadoFacturacionOptions}
                   value={estadoFacturacionSelected}
                   onChange={(opts) =>
@@ -804,7 +806,7 @@ const fetchPedidos = async () => {
                             />
                           </td>
                           <td className="py-3 px-2">
-                            <span className="font-semibold text-slate-800">
+                            <span className="font-semibold text-slate-800 notranslate">
                               {p.codigo}
                             </span>
                           </td>
@@ -815,36 +817,32 @@ const fetchPedidos = async () => {
                               </span>
                             </div>
                           </td>
-                          <td className="py-3 px-2 whitespace-nowrap text-slate-800">
+                          <td className="py-3 px-2 whitespace-nowrap text-slate-800 notranslate">
                             S/ {p.total.toFixed(2)}
                           </td>
                           <td className="py-3 px-2 text-slate-700">
                             {p.asesor}
                           </td>
                           <td className="py-3 px-2">
-                            <span className={formatBadge(p.estadoPedido)}>
+                            <span className={`${formatBadge(p.estadoPedido)} notranslate`}>
                               {p.estadoPedido}
                             </span>
                           </td>
                           <td className="py-3 px-2">
-                            <span
-                              className={formatBadgeFacturacion(
-                                p.estadoFacturacion
-                              )}
-                            >
+                            <span className={`${formatBadgeFacturacion(p.estadoFacturacion)} notranslate`}>
                               {p.estadoFacturacion}
                             </span>
                           </td>
-                          <td className="py-3 px-2 text-slate-700 text-center">
+                          <td className="py-3 px-2 text-slate-700 text-center notranslate">
                             {formatearFecha(p.fechaIngreso) || "-"}
                           </td>
-                          <td className="py-3 px-2 text-slate-700 text-center">
+                          <td className="py-3 px-2 text-slate-700 text-center notranslate">
                             {formatearFecha(p.fechaConfirmacion) || "-"}
                           </td>
-                          <td className="py-3 px-2 text-slate-700 text-center">
+                          <td className="py-3 px-2 text-slate-700 text-center notranslate">
                             {formatearFecha(p.fechaPactada) || "-"}
                           </td>
-                          <td className="py-3 px-2 text-slate-700 text-center">
+                          <td className="py-3 px-2 text-slate-700 text-center notranslate">
                             {formatearFecha(p.fechaEntrega) || "-"}
                           </td>
                           {!esAsesor && (
@@ -855,8 +853,8 @@ const fetchPedidos = async () => {
                                 onClick={() => CONTROLES_HABILITADOS && abrirModalPago(p)}
                                 className={
                                   CONTROLES_HABILITADOS
-                                    ? "text-xs rounded-full bg-indigo-50 px-3 py-1 text-indigo-600 hover:bg-indigo-100 border border-indigo-100"
-                                    : "text-xs rounded-full bg-slate-100 px-3 py-1 text-slate-400 border border-slate-200 cursor-not-allowed"
+                                    ? "text-xs rounded-full bg-indigo-50 px-3 py-1 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 notranslate"
+                                    : "text-xs rounded-full bg-slate-100 px-3 py-1 text-slate-400 border border-slate-200 cursor-not-allowed notranslate"
                                 }
                               >
                                 Actualizar Pago
@@ -871,8 +869,8 @@ const fetchPedidos = async () => {
                                 onClick={() => CONTROLES_HABILITADOS && abrirModalFacturacion(p)}
                                 className={
                                   CONTROLES_HABILITADOS
-                                    ? "text-xs rounded-full bg-amber-50 px-3 py-1 text-amber-600 hover:bg-amber-100 border border-amber-100"
-                                    : "text-xs rounded-full bg-slate-100 px-3 py-1 text-slate-400 border border-slate-200 cursor-not-allowed"
+                                    ? "text-xs rounded-full bg-amber-50 px-3 py-1 text-amber-600 hover:bg-amber-100 border border-amber-100 notranslate"
+                                    : "text-xs rounded-full bg-slate-100 px-3 py-1 text-slate-400 border border-slate-200 cursor-not-allowed notranslate"
                                 }
                               >
                                 Actualizar Facturación
@@ -885,7 +883,7 @@ const fetchPedidos = async () => {
                               onClick={() =>
                                 abrirModalActualizarEstados(p)
                               }
-                              className="text-xs rounded-full bg-emerald-50 px-3 py-1 text-emerald-600 hover:bg-emerald-100 border border-emerald-100"
+                              className="text-xs rounded-full bg-emerald-50 px-3 py-1 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 notranslate"
                             >
                               Actualizar Estados
                             </button>
@@ -926,8 +924,8 @@ const fetchPedidos = async () => {
                   </button>
 
                   <span>
-                    Página <span className="font-semibold">{page}</span> de{" "}
-                    <span className="font-semibold">{totalPages}</span>
+                    Página <span className="font-semibold notranslate">{page}</span> de{" "}
+                    <span className="font-semibold notranslate">{totalPages}</span>
                   </span>
 
                   <button

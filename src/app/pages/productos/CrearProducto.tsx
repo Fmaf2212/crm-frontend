@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/sectionTitle";
 import { PackagePlus, PackageSearch, Copy, Edit, Trash, UploadCloud, X } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import ReactSelect from "react-select";
 import { ProductService } from "@/services/productService";
 import { showToast } from "@/components/ui/toastManager";
@@ -38,6 +39,18 @@ const obtenerNombreLinea = (p: any, listaLineas: any[]) => {
 
 
 const CrearProducto: React.FC = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const userLS = localStorage.getItem("sn_user");
+    const user = userLS ? JSON.parse(userLS) : null;
+
+    // Si es asesor (id_Tipo_Usuario = 8), bloquear ruta
+    if (user?.id_Tipo_Usuario === 8) {
+      navigate("/");
+    }
+  }, []);
+
   const [codigo, setCodigo] = useState("");
   const [codigoERP, setCodigoERP] = useState("");
   const [nombre, setNombre] = useState("");

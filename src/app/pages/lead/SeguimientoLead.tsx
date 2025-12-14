@@ -32,6 +32,7 @@ type Lead = {
   medioRegistro: string;
   asesor: string;
   supervisor: string;
+  mail: string;
   campania: string;
   estadoLead: LeadEstado | string;
 };
@@ -53,8 +54,10 @@ type GetSeguimientoLeadItem = {
   fecha_Registro_Lead: string;
   numero_De_Contacto: string;
   cliente: string | null;
-  medio_Registro_lead: string;
+  medio_Registro_Lead: string;
   asesor: string;
+  supervisor: string;
+  mail: string;
   campana: string;
   estatus_Lead: string;
   codigo_Lead?: string;
@@ -116,14 +119,17 @@ function formatFecha(f: string) {
   return f.split("-").reverse().join("/");
 }
 
-function formatFechaHora(iso: string) {
-  const d = new Date(iso);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+function formatFechaHora(fechaString: string) {
+
+  const [fechaPart, ...horaParts] = fechaString.split(' ');
+
+  const [parte1, parte2, yyyy] = fechaPart.split('/');
+
+  const nuevaFecha = `${parte2}/${parte1}/${yyyy}`;
+
+  const horaCompleta = horaParts.join(' ');
+
+  return `${nuevaFecha} ${horaCompleta}`;
 }
 
 function getTodayIso() {
@@ -286,9 +292,10 @@ export default function SeguimientoLead() {
       fechaRegistro,
       numeroContacto: item.numero_De_Contacto,
       clienteVinculado: item.cliente || "",
-      medioRegistro: item.medio_Registro_lead,
+      medioRegistro: item.medio_Registro_Lead,
       asesor: item.asesor,
-      supervisor: "",
+      supervisor: item.supervisor,
+      mail: item.mail,
       campania: item.campana,
       estadoLead: item.estatus_Lead as LeadEstado | string,
     };
@@ -473,12 +480,19 @@ export default function SeguimientoLead() {
 
   useEffect(() => {
     const fetchHistorial = async () => {
-      if (!modalActualizarOpen || !leadEnEdicion) return;
+      const id =
+        leadEnEdicion?.id ??
+        leadInfoSeleccionado?.id ??
+        null;
+
+      const modalAbierto =
+        modalActualizarOpen || modalInfoOpen;
+
+      if (!modalAbierto || !id) return;
 
       const res = await LeadService.getDetalleActualizarEstadoLead({
-        id_Lead: leadEnEdicion.id,
+        id_Lead: id,
       });
-
       const historial = res?.data?.getHistoricoEstadoLeads || [];
 
       const mapped = historial.map((x: any) => ({
@@ -496,12 +510,12 @@ export default function SeguimientoLead() {
 
       setHistorialPorLead((prev) => ({
         ...prev,
-        [leadEnEdicion.id]: mapped,
+        [id]: mapped,
       }));
     };
 
     fetchHistorial();
-  }, [modalActualizarOpen, leadEnEdicion]);
+  }, [modalActualizarOpen, modalInfoOpen, leadEnEdicion, leadInfoSeleccionado]);
 
   const cerrarModalActualizar = () => {
     setModalActualizarOpen(false);
@@ -719,17 +733,9 @@ export default function SeguimientoLead() {
     setOpenGenerarRecompraModal(false);
   };
 
-  // const abrirDetallePedido = async (lead: any) => {
-  //   try {
-  //     const res = await PedidoService.getDetallePedido(lead.idPedido);
-  //     if (res?.data) {
-  //       setPedidoSeleccionado(res.data);
-  //       setOpenGenerarRecompraModal(true);
-  //     }
-  //   } catch (e) {
-  //     console.error("Error obteniendo detalle del pedido", e);
-  //   }
-  // };
+  const estadoBloqueado =
+    leadEnEdicion?.estadoLead === "Venta" ||
+    leadEnEdicion?.estadoLead === "No Venta";
 
   return (
     <AppLayout title="Seguimiento de Lead">
@@ -1201,18 +1207,14 @@ export default function SeguimientoLead() {
                           </td>
 
                           <td className="px-4 py-3">
-                            {(lead.estadoLead === "Venta" || lead.estadoLead === "No Venta") ? (
-                              ""
-                            ) : (
-                              <Button
-                                variant="outline"
-                                className="flex items-center gap-1 border-emerald-700 text-emerald-700 text-xs font-medium hover:bg-emerald-50 h-8"
-                                onClick={() => abrirModalActualizar(lead)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                                Actualizar
-                              </Button>
-                            )}
+                            <Button
+                              variant="outline"
+                              className="flex items-center gap-1 border-emerald-700 text-emerald-700 text-xs font-medium hover:bg-emerald-50 h-8"
+                              onClick={() => abrirModalActualizar(lead)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Actualizar
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -1348,6 +1350,7 @@ export default function SeguimientoLead() {
                 Estado de Lead
               </label>
               <ReactSelect
+                isDisabled={estadoBloqueado}
                 options={ESTADOS_LEAD_MODAL}
                 placeholder="Seleccione estado"
                 getOptionValue={(opt) => `${opt.value}`}
@@ -1357,7 +1360,9 @@ export default function SeguimientoLead() {
                     ? ESTADOS_LEAD_MODAL.find((e) => e.value === estadoSeleccionado)
                     : null
                 }
-                onChange={(opt) => setEstadoSeleccionado((opt?.value as LeadEstado) || "")}
+                onChange={(opt) =>
+                  !estadoBloqueado && setEstadoSeleccionado((opt?.value as LeadEstado) || "")
+                }
               />
             </div>
 
@@ -1386,7 +1391,7 @@ export default function SeguimientoLead() {
               </div>
             )}
 
-            {(estadoSeleccionado === "No Venta" ||
+            {!estadoBloqueado && (estadoSeleccionado === "No Venta" ||
               [
                 "Agendado",
                 "En Conversación",
@@ -1408,7 +1413,7 @@ export default function SeguimientoLead() {
                 </div>
               )}
 
-            {estadoSeleccionado === "No Venta" && (
+            {!estadoBloqueado && estadoSeleccionado === "No Venta" && (
               <div className="mt-4 border rounded-2xl p-4 bg-[#F9FAFB]">
                 <h3 className="text-sm font-semibold text-gray-800 mb-3">
                   Detalle de No Venta
@@ -1492,7 +1497,7 @@ export default function SeguimientoLead() {
                           {h.fechaPactada && (
                             <div className="mt-0.5 text-gray-600 text-[10px] leading-normal">
                               <span className="font-semibold">Pactado: </span>
-                              {formatFecha(h.fechaPactada)} · {h.horaPactada}
+                              {formatFechaHora(h.fechaPactada)} · {h.horaPactada}
                             </div>
                           )}
 
@@ -1528,8 +1533,12 @@ export default function SeguimientoLead() {
               </Button>
 
               <Button
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={handleGuardarClick}
+                disabled={estadoBloqueado}
+                className={` ${estadoBloqueado
+                    ? "text-[#999] bg-[#F2F2F2] cursor-not-allowed hover:bg-[#F2F2F2]"
+                    : "text-white bg-emerald-600 hover:bg-emerald-700"
+                  }`}
+                onClick={!estadoBloqueado ? handleGuardarClick : undefined}
               >
                 Actualizar Estado
               </Button>
@@ -1641,9 +1650,9 @@ export default function SeguimientoLead() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm font-medium">Email (simulado)</label>
+                <label className="text-sm font-medium">Email</label>
                 <Input
-                  value={getEmailFromLead(leadInfoSeleccionado)}
+                  value={leadInfoSeleccionado.mail}
                   readOnly
                   className="bg-gray-100 cursor-not-allowed border-gray-300"
                 />
@@ -1685,7 +1694,7 @@ export default function SeguimientoLead() {
                 />
               </div>
 
-              <div className="space-y-1 md:col-span-2">
+              <div className="space-y-1">
                 <label className="text-sm font-medium">Estado Actual</label>
                 <Input
                   value={leadInfoSeleccionado.estadoLead}
@@ -1696,53 +1705,74 @@ export default function SeguimientoLead() {
             </div>
 
             {historialPorLead[leadInfoSeleccionado.id]?.length > 0 && (
-              <div className="mt-4 border-t pt-3">
-                <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                  Últimas gestiones
+              <div className="mt-6 border rounded-2xl p-4 bg-white">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">
+                  Historial del Estado
                 </h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                  {historialPorLead[leadInfoSeleccionado.id].map((h, idx) => (
-                    <div key={`${h.fecha}-${idx}`} className="border rounded-lg p-2 bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-gray-800">
-                          {h.estado}
-                        </span>
-                        <span className="text-[11px] text-gray-500">
-                          {formatFechaHora(h.fecha)}
-                        </span>
+
+                <div className="border-t pt-3 space-y-3 max-h-48 overflow-y-auto">
+                  {historialPorLead[leadInfoSeleccionado.id].map((h, idx) => {
+                    const historial = historialPorLead[leadInfoSeleccionado.id];
+                    const esUltimo = idx === historial.length - 1;
+
+                    return (
+                      <div key={idx} className="flex items-start gap-3">
+                        {/* CÍRCULO + LÍNEA */}
+                        <div className="flex flex-col items-center">
+                          <div
+                            className={
+                              esUltimo
+                                ? "w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs"
+                                : "w-6 h-6 rounded-full bg-gray-300 text-gray-700 flex items-center justify-center text-xs"
+                            }
+                          >
+                            {esUltimo ? "✓" : idx + 1}
+                          </div>
+
+                          {!esUltimo && <div className="w-px flex-1 bg-gray-300" />}
+                        </div>
+
+                        {/* INFO */}
+                        <div className="flex-1 text-xs">
+                          <div className="font-semibold text-gray-500">
+                            Estado:{" "}
+                            <span className="font-medium text-[#006341]">{h.estado}</span>
+                          </div>
+
+                          <div className="text-gray-500 text-[10px]">
+                            {formatFechaHora(h.fecha)} por {h.usuario}
+                          </div>
+
+                          {h.detalle && (
+                            <div className="mt-0.5 text-gray-700 text-[10px] leading-normal">
+                              Detalle de Estado: {h.detalle}
+                            </div>
+                          )}
+
+                          {h.fechaPactada && (
+                            <div className="mt-0.5 text-gray-600 text-[10px] leading-normal">
+                              <span className="font-semibold">Pactado: </span>
+                              {formatFechaHora(h.fechaPactada)} · {h.horaPactada}
+                            </div>
+                          )}
+
+                          {h.estatusEspecifico && (
+                            <div className="mt-0.5 text-gray-600 text-[10px] leading-normal">
+                              <span className="font-semibold">Estatus específico:</span>{" "}
+                              {h.estatusEspecifico}
+                            </div>
+                          )}
+
+                          {h.observaciones && (
+                            <div className="mt-0.5 text-gray-600 text-[10px] leading-normal">
+                              <span className="font-semibold">Observaciones:</span>{" "}
+                              {h.observaciones}
+                            </div>
+                          )}
+                        </div>
                       </div>
-
-                      {h.detalle && (
-                        <p className="mt-1 text-xs text-gray-700">{h.detalle}</p>
-                      )}
-
-                      {(h.fechaPactada || h.horaPactada) && (
-                        <p className="mt-1 text-[11px] text-gray-600">
-                          <span className="font-semibold">Pactado: </span>
-                          {h.fechaPactada ? formatFecha(h.fechaPactada) : ""}
-                          {h.horaPactada ? ` · ${h.horaPactada}` : ""}
-                        </p>
-                      )}
-
-                      {h.estatusEspecifico && (
-                        <p className="mt-1 text-[11px] text-gray-600">
-                          <span className="font-semibold">Estatus específico: </span>
-                          {h.estatusEspecifico}
-                        </p>
-                      )}
-
-                      {h.observaciones && (
-                        <p className="mt-1 text-[11px] text-gray-600">
-                          <span className="font-semibold">Observaciones: </span>
-                          {h.observaciones}
-                        </p>
-                      )}
-
-                      <p className="mt-1 text-[11px] text-gray-500">
-                        Registrado por {h.usuario}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

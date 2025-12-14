@@ -60,14 +60,18 @@ export function Sidebar() {
             ]}
           />
 
-          {/* GESTIONAR PRODUCTOS */}
-          <SidebarAccordion
-            icon={<Package className="w-4 h-4" />}
-            label="GESTIONAR PRODUCTOS"
-            items={[
-              { name: "Crear Producto", path: "/productos/crear" },
-            ]}
-          />
+        {/* GESTIONAR PRODUCTOS */}
+        <SidebarAccordion
+          icon={<Package className="w-4 h-4" />}
+          label="GESTIONAR PRODUCTOS"
+          items={
+            user?.id_Tipo_Usuario === 8
+              ? [] // Los asesores NO ven nada dentro de este menú
+              : [
+                { name: "Crear Producto", path: "/productos/crear" },
+              ]
+          }
+        />
 
           {/* SISTEMA / CONFIGURACIÓN */}
           <SidebarAccordion
