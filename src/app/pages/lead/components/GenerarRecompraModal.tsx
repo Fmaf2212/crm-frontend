@@ -448,8 +448,7 @@ const GenerarRecompraModal: React.FC<Props> = ({ open, onClose, idPedido }) => {
                     <span>
                       S/{" "}
                       {(
-                        Number(detalle.monto_Total_Promocional || 0) +
-                        Number(detalle.precioDelivery || 0)
+                        Number(detalle.monto_Total_Promocional || 0)
                       ).toFixed(2)}
                     </span>
                   </div>
