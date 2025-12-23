@@ -1,7 +1,10 @@
 import { API_BASE_URL, API_TOKEN } from "@/config/apiConfig";
+import type { CampanaDropDownResponse } from "@/types/campana/CampanaDropDown";
+import type { EstatusEspecificoLeadResponse } from "@/types/lead/EstatusEspecificoLead";
+import type { EstatusLeadDropDownResponse } from "@/types/lead/EstatusLeadDropDown";
 
 export const LeadService = {
-  getCampanaForDropDown: async () => {
+  getCampanaForDropDown: async (): Promise<CampanaDropDownResponse> => {
     const url = `${API_BASE_URL}/Campana/GetCampanaForDropDown`;
 
     const res = await fetch(url, {
@@ -132,4 +135,31 @@ export const LeadService = {
     return res.json();
   },
 
+  getEstatusLeadForDropDown: async (): Promise<EstatusLeadDropDownResponse> => {
+    const url = `${API_BASE_URL}/EstatusLead/GetEstatusLeadForDropDown`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    return res.json();
+  },
+
+  getEstatusEspecificoLeadForDropDown: async (): Promise<EstatusEspecificoLeadResponse>=> {
+    const url = `${API_BASE_URL}/EstatusEspecificoLead/GetEstatusEspecificoLead`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    return res.json();
+  },
 };

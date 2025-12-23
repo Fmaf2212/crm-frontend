@@ -103,6 +103,8 @@ const GenerarRecompraModal: React.FC<Props> = ({ open, onClose, idPedido }) => {
         // ===== PEDIDO BASE =====
         id_Lead: nuevoIdLead,
         numero_De_Contacto: d.leadParaRecompra.numero_De_Contacto,
+        id_Campana: d.leadParaRecompra.id_Campana,
+        id_Medio_Registro_Lead: d.leadParaRecompra.id_Medio_Registro_Lead,
         telefono_Alterno: d.telefono_Alterno,
         id_Acuerdo_de_Pago: d.id_Acuerdo_de_Pago,
         cantidad_Productos: d.cantidad_Productos,
@@ -147,7 +149,7 @@ const GenerarRecompraModal: React.FC<Props> = ({ open, onClose, idPedido }) => {
           subtotal_Promocional: p.subtotal_Promocional
         }))
       };
-      console.log(payloadNuevoPedido);
+      // console.log(payloadNuevoPedido);
       // === 4. Pasar payload por navegación a /pedidos/crear
       navigate('/pedidos/crear', {
         state: {

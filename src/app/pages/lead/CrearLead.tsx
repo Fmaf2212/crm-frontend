@@ -143,6 +143,7 @@ export default function CrearLead() {
     { value: "593", label: "🇪🇨 593" },
     { value: "591", label: "🇧🇴 591" },
     { value: "54", label: "🇦🇷 54" },
+    { value: "1", label: "🇺🇸 1" },
   ];
 
   function getFirstDayOfMonthIso() {

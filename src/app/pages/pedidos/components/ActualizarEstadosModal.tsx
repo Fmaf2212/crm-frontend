@@ -4,7 +4,7 @@
 //   NADA BORRADO
 // ==============================
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   X,
   User,
@@ -169,41 +169,17 @@ const ActualizarEstadosModal: React.FC<Props> = ({
   const [pdfLoading, setPdfLoading] = useState(false);
   const [loadingEtiqueta, setLoadingEtiqueta] = useState(false);
 
-  const etiquetaMock = {
-    numeroOrden: "ORD-2025-00125",
-    nombreDestinatario: "María López Vargas",
-    dni: "45879632",
-    telefono: "+51 987 456 123",
-    direccion: "Av. Primavera 123 - Surco",
-    provincia: "Lima",
-    distrito: "Santiago de Surco",
-    agencia: "Shalom",
-    peso: "0.85 kg",
-    fechaEnvio: "27/10/2025",
-    fechaEntrega: "29/10/2025",
-    estado: "EN PREPARACIÓN",
-    tracking: "SN-000125",
-  };
+  const estadoPedidoOptionsFiltradas = React.useMemo(() => {
+    if (estadoPedidoOriginal === "Entregada") {
+      return estadoPedidoOptionsModal.filter(
+        (o) =>
+          o.value === "Entregada" ||
+          o.value === "Liquidada"
+      );
+    }
 
-  function generarCode128Base64(tracking: string): string {
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    JsBarcode(svg, tracking, {
-      format: "code128",
-      displayValue: false,
-      margin: 0,
-      height: 40,
-    });
-
-    const str = new XMLSerializer().serializeToString(svg);
-    return `data:image/svg+xml;base64,${btoa(str)}`;
-  }
-
-  async function generarQRBase64(tracking: string): Promise<string> {
-    return await QRCode.toDataURL(
-      `https://santanatura.com.pe/tracking/${tracking}`,
-      { margin: 0, scale: 4 }
-    );
-  }
+    return estadoPedidoOptionsModal;
+  }, [estadoPedidoOriginal, estadoPedidoOptionsModal]);
 
   const handleImprimirEtiqueta = async () => {
     try {
@@ -314,6 +290,37 @@ const ActualizarEstadosModal: React.FC<Props> = ({
   const userLS = JSON.parse(localStorage.getItem("sn_user") || "{}");
   const esAsesor = userLS?.id_Tipo_Usuario === 8;
 
+  const camposFaltantes = useMemo(() => {
+    if (!detalle) return {};
+
+    return {
+      correo: !detalle?.detalleClientePorPedido?.mail,
+      telefonoAlterno: !detalle?.telefono_Alterno,
+      linkGeolocalizacion: !detalle?.detalleDeliveryPorPedido?.link_Geolocalizacion,
+      referencia: !detalle?.detalleDeliveryPorPedido?.referencia,
+      indicaciones: !detalle?.detalleDeliveryPorPedido?.indicaciones_De_Entrega,
+    };
+  }, [detalle]);
+
+  const hayCamposFaltantes = Object.values(camposFaltantes).some(Boolean);
+
+  const estadoPermitido =
+    estadoPedidoOriginal === "Ingresada" ||
+    estadoPedidoOriginal === "Incidencia";
+
+  const puedeCompletarDatos =
+    esAsesor && estadoPermitido && hayCamposFaltantes;
+
+  const [mostrarCompletarDatos, setMostrarCompletarDatos] = useState(false);
+
+  const [formCompletar, setFormCompletar] = useState({
+    correo: "",
+    telefonoAlterno: "",
+    linkGeolocalizacion: "",
+    referencia: "",
+    indicaciones: "",
+  });
+
   // ==================================
   //       GUARDAR CAMBIOS
   // ==================================
@@ -340,6 +347,101 @@ const ActualizarEstadosModal: React.FC<Props> = ({
       }
     } catch (err) {
       showToastLocal("Error al comunicarse con el servidor.", "error");
+    }
+  };
+
+  const handleIntentarCompletarDatos = () => {
+    // 1️⃣ Validar al menos un campo
+    const hayCampoNuevo = Object.values(formCompletar).some(
+      (v) => v && v.trim() !== ""
+    );
+
+    if (!hayCampoNuevo) {
+      showToastLocal(
+        "Debes completar al menos un dato del pedido.",
+        "error"
+      );
+      return;
+    }
+
+    // 2️⃣ Validar correo (si existe)
+    if (
+      formCompletar.correo &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formCompletar.correo)
+    ) {
+      showToastLocal("El correo ingresado no es válido.", "error");
+      return;
+    }
+
+    // 3️⃣ Si todo ok → mostrar confirmación
+    setConfirmConfig({
+      open: true,
+      title: "Confirmar datos",
+      message: "¿Deseas completar los datos faltantes del pedido?",
+      onConfirm: async () => {
+        setConfirmConfig((prev) => ({ ...prev, open: false }));
+        await handleGuardarDatosPedido();
+      },
+    });
+  };
+
+  const handleGuardarDatosPedido = async () => {
+    const bodyUpdate = {
+      id_Pedido: detalle.id_Pedido,
+
+      telefono_Alterno:
+        detalle.telefono_Alterno &&
+          detalle.telefono_Alterno.trim() !== ""
+          ? detalle.telefono_Alterno
+          : formCompletar.telefonoAlterno || "",
+
+      mail:
+        detalle.detalleClientePorPedido?.mail &&
+          detalle.detalleClientePorPedido.mail.trim() !== ""
+          ? detalle.detalleClientePorPedido.mail
+          : formCompletar.correo || "",
+
+      referencia:
+        detalle.detalleDeliveryPorPedido?.referencia &&
+          detalle.detalleDeliveryPorPedido.referencia.trim() !== ""
+          ? detalle.detalleDeliveryPorPedido.referencia
+          : formCompletar.referencia || "",
+
+      indicaciones_De_Entrega:
+        detalle.detalleDeliveryPorPedido?.indicaciones_De_Entrega &&
+          detalle.detalleDeliveryPorPedido.indicaciones_De_Entrega.trim() !== ""
+          ? detalle.detalleDeliveryPorPedido.indicaciones_De_Entrega
+          : formCompletar.indicaciones || "",
+
+      link_Geolocalizacion:
+        detalle.detalleDeliveryPorPedido?.link_Geolocalizacion &&
+          detalle.detalleDeliveryPorPedido.link_Geolocalizacion.trim() !== ""
+          ? detalle.detalleDeliveryPorPedido.link_Geolocalizacion
+          : formCompletar.linkGeolocalizacion || "",
+    };
+
+    try {
+      const res = await PedidoService.updatePedidoPorAsesor(bodyUpdate);
+
+      if (res?.error === false || res?.success === true) {
+        showToastLocal(
+          "Datos del pedido actualizados correctamente.",
+          "success"
+        );
+
+        setMostrarCompletarDatos(false);
+        onUpdated();
+      } else {
+        showToastLocal(
+          res?.message || "No se pudo completar los datos.",
+          "error"
+        );
+      }
+    } catch {
+      showToastLocal(
+        "Error al comunicarse con el servidor.",
+        "error"
+      );
     }
   };
 
@@ -478,8 +580,8 @@ console.log(telefono);
 
               <ReactSelect
                 isDisabled={esAsesor}
-                options={estadoPedidoOptionsModal}
-                value={estadoPedidoOptionsModal.find(
+                options={estadoPedidoOptionsFiltradas}
+                value={estadoPedidoOptionsFiltradas.find(
                   (o) => o.value === estadoPedidoModal
                 )}
                 onChange={(opt) =>
@@ -574,6 +676,35 @@ console.log(telefono);
               <p className="text-sm">
                 {detalle?.detalleLeadPorPedido?.numero_De_Contacto || "-"}
               </p>
+
+              <p className="text-xs text-gray-500 mt-2">Correo electrónico</p>
+              <p className="text-sm">
+                {detalle?.detalleClientePorPedido?.mail || "-"}
+              </p>
+
+              <p className="text-xs text-gray-500 mt-2">Teléfono alternativo</p>
+              <p className="text-sm">
+                {detalle?.telefono_Alterno || "-"}
+              </p>
+
+              <p className="text-xs text-gray-500 mt-2">Receptor autorizado</p>
+              <p className="text-sm">
+                {detalle?.detalleDeliveryPorPedido?.receptor_Autorizado === true
+                  ? "Otra persona"
+                  : detalle?.detalleDeliveryPorPedido?.receptor_Autorizado === false
+                    ? "Mismo cliente"
+                    : "-"}
+              </p>
+              {
+                detalle?.detalleDeliveryPorPedido?.receptor_Autorizado === true
+                  ? <>
+                    <p className="text-xs text-gray-500 mt-2">Nombre receptor autorizado</p>
+                    <p className="text-sm">
+                      {detalle?.detalleDeliveryPorPedido?.nombre_Receptor_Autorizado || "-"}
+                    </p></>
+                  :
+                  null
+              }
             </div>
 
             {/* ASESOR */}
@@ -618,6 +749,11 @@ console.log(telefono);
                     {detalle.detalleDeliveryPorPedido.direccion_Delivery || "-"}
                   </p>
 
+                  <p className="text-xs text-gray-500 mt-2">Departamento</p>
+                  <p className="text-sm">
+                    {detalle.detalleDeliveryPorPedido.departamento || "-"}
+                  </p>
+
                   <p className="text-xs text-gray-500 mt-2">Provincia</p>
                   <p className="text-sm">
                     {detalle.detalleDeliveryPorPedido.provincia || "-"}
@@ -642,6 +778,21 @@ console.log(telefono);
                   <p className="text-sm">
                     {detalle.detalleDeliveryPorPedido.horario_Pactado || "-"}
                   </p>
+
+                  <p className="text-xs text-gray-500 mt-2">Link de Ubicación</p>
+                  <a
+                    href={detalle.detalleDeliveryPorPedido.link_Geolocalizacion}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm break-all text-blue-600 hover:underline"
+                  >
+                    {detalle.detalleDeliveryPorPedido.link_Geolocalizacion || "-"}
+                  </a>
+
+                  <p className="text-xs text-gray-500 mt-2">Referencia</p>
+                  <p className="text-sm">
+                    {detalle.detalleDeliveryPorPedido.referencia || "-"}
+                  </p>
                 </>
               ) : (
                 <p className="text-xs text-gray-500 mt-1">
@@ -650,6 +801,106 @@ console.log(telefono);
               )}
             </div>
           </div>
+
+          {puedeCompletarDatos && (
+            <div className="border rounded-2xl p-4 bg-emerald-50 space-y-3">
+              <button
+                onClick={() => setMostrarCompletarDatos(v => !v)}
+                className="text-sm font-semibold text-emerald-700"
+              >
+                ➕ Completar datos del pedido
+              </button>
+
+              {mostrarCompletarDatos && (
+                <div className="grid gap-3">
+                  {camposFaltantes.correo && (
+                    <input
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      placeholder="Correo"
+                      value={formCompletar.correo}
+                      onChange={(e) =>
+                        setFormCompletar({ ...formCompletar, correo: e.target.value })
+                      }
+                    />
+                  )}
+
+                  {camposFaltantes.telefonoAlterno && (
+                    <input
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      placeholder="Teléfono alternativo"
+                      value={formCompletar.telefonoAlterno}
+                      onChange={(e) =>
+                        setFormCompletar({
+                          ...formCompletar,
+                          telefonoAlterno: e.target.value,
+                        })
+                      }
+                    />
+                  )}
+
+                  {camposFaltantes.linkGeolocalizacion && (
+                    <input
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      placeholder="Link de ubicación"
+                      value={formCompletar.linkGeolocalizacion}
+                      onChange={(e) =>
+                        setFormCompletar({
+                          ...formCompletar,
+                          linkGeolocalizacion: e.target.value,
+                        })
+                      }
+                    />
+                  )}
+
+                  {camposFaltantes.referencia && (
+                    <input
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      placeholder="Referencia"
+                      value={formCompletar.referencia}
+                      onChange={(e) =>
+                        setFormCompletar({
+                          ...formCompletar,
+                          referencia: e.target.value,
+                        })
+                      }
+                    />
+                  )}
+
+                  {camposFaltantes.indicaciones && (
+                    <input
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      placeholder="Indicaciones de entrega"
+                      value={formCompletar.indicaciones}
+                      onChange={(e) =>
+                        setFormCompletar({
+                          ...formCompletar,
+                          indicaciones: e.target.value,
+                        })
+                      }
+                    />
+                  )}
+
+                  <button
+                    // onClick={() =>
+                    //   setConfirmConfig({
+                    //     open: true,
+                    //     title: "Confirmar datos",
+                    //     message: "¿Deseas completar los datos faltantes del pedido?",
+                    //     onConfirm: async () => {
+                    //       setConfirmConfig(prev => ({ ...prev, open: false }));
+                    //       await handleGuardarDatosPedido();
+                    //     },
+                    //   })
+                    // }
+                    onClick={handleIntentarCompletarDatos}
+                    className="bg-emerald-600 text-white rounded-full px-6 py-2 text-sm self-start hover:bg-emerald-700 active:scale-95 transition-all duration-200 shadow-sm hover:shadow-md"
+                  >
+                    Completar datos
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* =============================
               PRODUCTOS
@@ -725,48 +976,67 @@ console.log(telefono);
           ============================= */}
 
           {/* === SECCIÓN ORIGINAL — NADA BORRADO === */}
+          <div className="flex gap-4">
+            <div className="border rounded-2xl p-4 bg-white flex-1">
+              <p className="flex gap-1 text-sm font-semibold text-gray-800 mb-2">
+                <MapPin size={18} color="#0E9F6E" />
+                Resumen del Pedido
+              </p>
 
-          <div className="border rounded-2xl p-4 bg-white max-w-xs">
-            <p className="flex gap-1 text-sm font-semibold text-gray-800 mb-2">
-              <MapPin size={18} color="#0E9F6E" />
-              Resumen del Pedido
-            </p>
+              {detalle && (
+                <div className="space-y-1 text-xs text-gray-700">
+                  <div className="flex justify-between">
+                    <span>Subtotal</span>
+                    <span>S/ {Number(detalle.monto_Total_Regular || 0).toFixed(2)}</span>
+                  </div>
 
-            {detalle && (
+                  <div className="flex justify-between">
+                    <span>Descuento total</span>
+                    <span className="text-red-500">
+                      -S/ {(
+                        (Number(detalle.monto_Total_Regular || 0) -
+                          Number(detalle.monto_Total_Promocional || 0)) || 0
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span>Costo de envío</span>
+                    <span>S/ {Number(detalle.precioDelivery || 0).toFixed(2)}</span>
+                  </div>
+
+                  <div className="flex justify-between font-semibold pt-1 border-t border-slate-100 mt-1">
+                    <span>Total</span>
+                    <span>
+                      S/{" "}
+                      {(
+                        Number(detalle.monto_Total_Promocional || 0)
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex-1"></div>
+            <div className="border rounded-2xl p-4 bg-white flex-1 h-fit">
+              <p className="flex gap-1 text-sm font-semibold text-gray-800 mb-2">
+                <MapPin size={18} color="#0E9F6E" />
+                Información del Pedido
+              </p>
+
               <div className="space-y-1 text-xs text-gray-700">
                 <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>S/ {Number(detalle.monto_Total_Regular || 0).toFixed(2)}</span>
+                  <span>Tipo de comprobante</span>
+                  <span>{detalle?.tipo_Comprobante || "-"}</span>
                 </div>
 
                 <div className="flex justify-between">
-                  <span>Descuento total</span>
-                  <span className="text-red-500">
-                    -S/ {(
-                      (Number(detalle.monto_Total_Regular || 0) -
-                        Number(detalle.monto_Total_Promocional || 0)) || 0
-                    ).toFixed(2)}
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Costo de envío</span>
-                  <span>S/ {Number(detalle.precioDelivery || 0).toFixed(2)}</span>
-                </div>
-
-                <div className="flex justify-between font-semibold pt-1 border-t border-slate-100 mt-1">
-                  <span>Total</span>
-                  <span>
-                    S/{" "}
-                    {(
-                      Number(detalle.monto_Total_Promocional || 0)
-                    ).toFixed(2)}
-                  </span>
+                  <span>Acuerdo de pago</span>
+                  <span>{detalle?.acuerdo_de_Pago || "-"}</span>
                 </div>
               </div>
-            )}
+            </div>
           </div>
-
           {/* =============================
               BOTONES ACCIÓN (VERSIÓN FINAL)
           ============================= */}

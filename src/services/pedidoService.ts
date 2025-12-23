@@ -46,20 +46,6 @@ export const PedidoService = {
     return res.json();
   },
 
-  // updateEstadosPedido: async (body: any) => {
-  //   const url = `${API_BASE_URL}/HistoricoPedidoEstado/UpdateEstadosPedido`;
-
-  //   const res = await fetch(url, {
-  //     method: "POST",
-  //     headers: {
-  //       Authorization: `Bearer ${API_TOKEN}`,
-  //       "Content-Type": "application/json",
-  //     },
-  //     body: JSON.stringify(body),
-  //   });
-
-  //   return res.json();
-  // },
   insertPedidoEstatusOperacion: async (body: any) => {
     const url = `${API_BASE_URL}/HistoricoPedidoEstado/InsertHistoricoPedidoEstatusOperacion`;
 
@@ -74,6 +60,7 @@ export const PedidoService = {
 
     return res.json();
   },
+
   insertPedidoEstatusPago: async (body: any) => {
     const url = `${API_BASE_URL}/HistoricoPedidoEstado/InsertPedidoEstatusPago`;
 
@@ -88,6 +75,7 @@ export const PedidoService = {
 
     return res.json();
   },
+
   getHistoricoPago: async (id_Pedido: number) => {
     const url = `${API_BASE_URL}/HistoricoPedidoEstado/GetHistoricoPedidoEstatusPago`;
 
@@ -102,6 +90,7 @@ export const PedidoService = {
 
     return res.json();
   },
+
   insertPedidoEstatusFacturacion: async (body: any) => {
     const url = `${API_BASE_URL}/HistoricoPedidoEstado/InsertHistoricoPedidoEstatusFacturacion`;
 
@@ -117,7 +106,6 @@ export const PedidoService = {
     return res.json();
   },
 
-
   getPedidoParaRecompra: async (id_Pedido: number) => {
     const url = `${API_BASE_URL}/Pedido/GetPedidoParaRecompra`;
 
@@ -128,6 +116,57 @@ export const PedidoService = {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ id_Pedido }),
+    });
+
+    return res.json();
+  },
+
+  getPedidoParaEdicion: async (id_Pedido: number) => {
+    const url = `${API_BASE_URL}/Pedido/GetPedidoParaEdicion`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id_Pedido }),
+    });
+
+    return res.json();
+  },
+
+  updatePedido: async (body: any) => {
+    const url = `${API_BASE_URL}/Pedido/UpdatePedido`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    return res.json();
+  },
+
+  updatePedidoPorAsesor: async (body: {
+    id_Pedido: number;
+    telefono_Alterno: string;
+    mail: string;
+    referencia: string;
+    indicaciones_De_Entrega: string;
+  }) => {
+    const url = `${API_BASE_URL}/Pedido/UpdatePedidoPorAsesor`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     });
 
     return res.json();

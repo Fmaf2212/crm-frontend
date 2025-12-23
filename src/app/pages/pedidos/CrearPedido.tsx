@@ -2,13 +2,19 @@ import { AppLayout } from "@/app/layout/AppLayout";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/sectionTitle";
 import { ShoppingCart, Trash2, Truck, PlusCircle, Search } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import ReactSelect from "react-select";
 import { API_BASE_URL, API_TOKEN } from "@/config/apiConfig";
 import { showToast } from "@/components/ui/toastManager";
 import { PedidoService } from "@/services/pedidoService";
 import { ConfirmModal } from "@/components/ui/confirmModal";
 import { useLocation, useNavigate } from "react-router-dom";
+
+import {
+  mapEdicionToPedidoUI
+} from "./crearPedido.mapper";
+
+import type { PedidoUI } from "./crearPedido.mapper";
 
 type Option = {
   value: number | string;
@@ -171,10 +177,15 @@ const medioEnvioOptions: Option[] = [
   { value: 4, label: "Olva" },
   { value: 5, label: "Marvisur" },
   { value: 6, label: "Flores" },
-  { value: 7, label: "Marvisur" },
+  { value: 7, label: "Emtrafesa" },
   { value: 8, label: "Cavassa" },
   { value: 9, label: "GM Internacional" },
-  { value: 10, label: "Emtrafesa" },
+  { value: 10, label: "Trans-Andina" },
+  { value: 11, label: "Los Chankas" },
+  { value: 12, label: "Tienda La Molina" },
+  { value: 13, label: "Módulo Plaza San Miguel" },
+  { value: 14, label: "Módulo MegaPlaza" },
+  { value: 15, label: "Módulo Jockey Plaza" },
 ];
 
 const horarioPactadoOptions: Option[] = [
@@ -184,15 +195,113 @@ const horarioPactadoOptions: Option[] = [
   { value: 4, label: "1pm a 6pm" },
 ];
 
+type ModoPedido = "venta" | "recompra" | "actualizacion";
+
 const CrearPedido: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const modo: "venta" | "recompra" = location.state?.modo || "venta";
-  const payloadRecompra = location.state?.payloadNuevoPedido || null;
+  const state = location.state || {};
 
-  const idLeadFromNav = location.state?.idLead || null;
-  const telefonoFromNav = location.state?.numeroContacto || null;
+  // const modo: "venta" | "recompra" = location.state?.modo || "venta";
+  // const modo: ModoPedido = location.state?.modo || "venta";
+  const modo: ModoPedido = state.modo || "venta";
+
+  const [leadIdFromVenta, setLeadIdFromVenta] = useState<string | null>(modo === "venta" ? location.state?.idLead : "sin Id Lead");
+  const [telefonoLeadFromVenta, setTelefonoLeadFromVenta] = useState<string | null>(modo === "venta" ? location.state?.numeroContacto : "sin numero contacto");
+
+  useEffect(() => {
+    if (modo === "venta") {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, []);
+
+  // const payloadRecompra = location.state?.payloadNuevoPedido || null;
+  // const payloadRecompra =
+  // modo === "recompra" ? state.payloadNuevoPedido : null;
+
+  // const payloadActualizacion =
+  //   modo === "actualizacion" ? state.payloadPedido : null;
+
+  const prevPathRef = useRef(location.pathname);
+
+  useEffect(() => {
+    const prevPath = prevPathRef.current;
+    const currentPath = location.pathname;
+
+    // Si salimos de /pedidos/crear hacia otra página
+    if (
+      prevPath === "/pedidos/crear" &&
+      currentPath !== "/pedidos/crear"
+    ) {
+      // 🔴 Venta y Actualización: NO deben persistir
+      if (modo === "venta" || modo === "actualizacion") {
+        // limpiar todo
+        setLeadIdUI(null);
+        setTelefonoLeadUI(null);
+
+        setNumeroDocumento("");
+        setClienteNombre("");
+        setClienteMail("");
+        setTipoDocumento(null);
+        setTipoComprobante(null);
+        setAcuerdoPago(null);
+
+        setCartItems([]);
+
+        setDepartamentoSel(null);
+        setProvinciaSel(null);
+        setDistritoSel(null);
+
+        setDireccion("");
+        setReferencia("");
+        setIndicacionesEntrega("");
+        setLinkUbicacion("");
+        setMedioEnvio(null);
+        setFechaPactada("");
+        setHorarioPactado(null);
+
+        setAuthorizedReceiver(null);
+        setReceiverName("");
+      }
+    }
+
+    prevPathRef.current = currentPath;
+  }, [location.pathname, modo]);
+
+  const pedidoUI: PedidoUI | null = useMemo(() => {
+    if (!state) return null;
+
+    // 🔹 2. RECOMPRA
+    if (state.payloadNuevoPedido) {
+      const p = state.payloadNuevoPedido;
+
+      return {
+        id_Pedido: undefined,
+
+        lead: {
+          id_Lead: p.id_Lead,
+          numero_De_Contacto: p.numero_De_Contacto,
+          id_Campana: p.id_Campana,
+          id_Medio_Registro_Lead: p.id_Medio_Registro_Lead
+        },
+
+        cliente: p.cliente ?? {},
+        delivery: p.delivery ?? {},
+        detalle: p.productos ?? [],
+
+        telefono_Alterno: p.telefono_Alterno ?? "",
+        id_Acuerdo_de_Pago: p.id_Acuerdo_de_Pago
+      };
+    }
+
+    // 🔹 3. ACTUALIZACIÓN
+    if (state.payloadPedido?.deliveryParaEdicion) {
+      return mapEdicionToPedidoUI(state.payloadPedido);
+    }
+
+    return null;
+  }, [state]);
 
   const usuarioLS = localStorage.getItem("sn_user");
   const idUsuario = usuarioLS ? JSON.parse(usuarioLS).id_Usuario : 0;
@@ -243,17 +352,8 @@ const CrearPedido: React.FC = () => {
     onConfirm: () => {},
   });
 
-  const [leadIdUI, setLeadIdUI] = useState<string | null>(modo === "venta" ? location.state?.idLead : "sin Id Lead");
-  const [telefonoLeadUI, setTelefonoLeadUI] = useState<string | null>(modo === "venta" ? location.state?.numeroContacto : "sin numero contacto");
-
-  const [leadIdUIfromRecompra, setLeadIdUIfromRecompra] = useState<string | null>(modo === "recompra" ? location.state?.id_Lead : "sin Id Lead");
-  const [telefonoLeadUIfromRecompra, setTelefonoLeadUIfromRecompra] = useState<string | null>(modo === "recompra" ? location.state?.numero_De_Contacto : "sin numero contacto");
-
-  useEffect(() => {
-    if (location.state) {
-      navigate(location.pathname, { replace: true, state: null });
-    }
-  }, []);
+  const [leadIdUI, setLeadIdUI] = useState<string | null>(null);
+  const [telefonoLeadUI, setTelefonoLeadUI] = useState<string | null>(null);
 
   const fetchDepartamentos = async () => {
     const url = `${API_BASE_URL}/Location/GetDepartamentoDropDown`;
@@ -322,26 +422,6 @@ const CrearPedido: React.FC = () => {
       value: d.idDistrito,
       label: d.descripcion,
     }));
-  };
-
-  const fetchNombreProducto = async (idProducto: number) => {
-    if (!idProducto) return null;
-
-    const url = `${API_BASE_URL}/Producto/GetDetalleProductoParaPedido`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${API_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ idProducto }),
-    });
-
-    const json = await res.json();
-
-    if (!json?.data) return null;
-
-    return json.data.nombre_Producto || null;
   };
 
   useEffect(() => {
@@ -457,117 +537,109 @@ const CrearPedido: React.FC = () => {
   }
 
   useEffect(() => {
-    // if (modo === "venta") {
-    //   setLeadIdUI(idLeadFromNav);
-    //   setTelefonoLeadUI(telefonoFromNav);
-    //   return;
-    // }
+    if (!pedidoUI) return;
 
-    if (modo === "recompra" && payloadRecompra) {
-      setLeadIdUI(payloadRecompra.id_Lead?.toString() || null);
-      setTelefonoLeadUI(payloadRecompra.numero_De_Contacto || null);
+    // Lead
+    setLeadIdFromVenta(pedidoUI.lead.id_Lead?.toString() || null);
+    setTelefonoLeadFromVenta(pedidoUI.lead.numero_De_Contacto || null);
 
-      setNumeroDocumento(payloadRecompra.cliente.numero_Documento || "");
-      setClienteNombre(payloadRecompra.cliente.cliente || "");
-      setClienteMail(payloadRecompra.cliente.mail || "");
-      setTelefonoAlternativo(payloadRecompra.telefono_Alterno || "");
+    setLeadIdUI(pedidoUI.lead.id_Lead?.toString() || null);
+    setTelefonoLeadUI(pedidoUI.lead.numero_De_Contacto || null);
 
-      const td = tipoDocumentoOptions.find(
-        (x) => x.value === payloadRecompra.cliente.id_Tipo_Documento
-      );
-      setTipoDocumento(td || null);
+    // Cliente
+    setNumeroDocumento(pedidoUI.cliente?.numero_Documento || "");
+    setClienteNombre(pedidoUI.cliente?.cliente || "");
+    setClienteMail(pedidoUI.cliente?.mail || "");
 
-      const cli = payloadRecompra.cliente;
+    const td = tipoDocumentoOptions.find(
+      (x) => x.value === pedidoUI.cliente?.id_Tipo_Documento
+    );
+    setTipoDocumento(td || null);
 
-      const tc = tipoComprobanteOptions.find(
-        (x) => x.value === cli.id_Tipo_Comprobante
-      );
-      setTipoComprobante(tc || null);
+    const tc = tipoComprobanteOptions.find(
+      (x) => x.value === pedidoUI.cliente?.id_Tipo_Comprobante
+    );
+    setTipoComprobante(tc || null);
 
-      const ap = acuerdoPagoOptions.find(
-        (x) => x.value === payloadRecompra.id_Acuerdo_de_Pago
-      );
-      setAcuerdoPago(ap || null);
+    const ap = acuerdoPagoOptions.find(
+      (x) => x.value === pedidoUI.id_Acuerdo_de_Pago
+    );
+    setAcuerdoPago(ap || null);
 
-      const del = payloadRecompra.delivery;
+    // Delivery
+    const del = pedidoUI.delivery;
 
-      const te = tipoEntregaOptions.find(
-        (x) => x.value === del.id_Tipo_de_Entrega
-      );
-      setTipoEntrega(te || null);
+    setDireccion(del.direccion_Delivery || "");
+    setReferencia(del.referencia || "");
+    setIndicacionesEntrega(del.indicaciones_De_Entrega || "");
+    setLinkUbicacion(del.link_Geolocalizacion || "");
 
-      const me = medioEnvioOptions.find(
-        (x) => x.value === del.id_Medio_de_Envio
-      );
-      setMedioEnvio(me || null);
-
-      setDireccion(del.direccion_Delivery || "");
-      setReferencia(del.referencia || "");
-      setIndicacionesEntrega(del.indicaciones_De_Entrega || "");
-      setLinkUbicacion(del.link_Geolocalizacion || "");
-
-      if (del.receptor_Autorizado) {
-        setAuthorizedReceiver({ value: "other", label: "Otra persona" });
-        setReceiverName(del.nombre_Receptor_Autorizado || "");
-      } else {
-        setAuthorizedReceiver({ value: "same", label: "Mismo cliente" });
-        setReceiverName("");
-      }
-
-      if (del.fecha_Pactada_Delivery) {
-        const fechaFormateada = convertirFechaAFormatoInput(
-          del.fecha_Pactada_Delivery
-        );
-        setFechaPactada(fechaFormateada);
-      }
-
-      const hp = horarioPactadoOptions.find(
-        (x) => x.value === del.id_Horario_Pactado
-      );
-      setHorarioPactado(hp || null);
-
-      const loadUbigeo = async () => {
-        const departamentos = await fetchDepartamentos();
-        const dpto = departamentos.find((x: any) => x.value === del.id_Departamento);
-        // console.log(dpto);
-        if (dpto) {
-          await handleDepartamentoChange(dpto);
-        }
-
-        const provincias = await fetchProvinciasByDepartamento(del.id_Departamento);
-        const prov = provincias.find((x: any) => x.value === del.id_Provincia);
-        // console.log(prov);
-        if (prov) {
-          await handleProvinciaChange(prov);
-        }
-
-        const distritos = await fetchDistritosByProvincia(del.id_Provincia);
-        const dist = distritos.find((x: any) => x.value === del.id_Distrito);
-        // console.log(dist);
-        if (dist) {
-          setDistritoSel(dist);
-        }
-      };
-
-      loadUbigeo();
-
-      const mapped = payloadRecompra.productos.map((p: any) => ({
-        id: Date.now() + Math.random(),
-        productId: p.id_Producto,
-        productName: p.nombre_Producto,
-        quantity: p.cantidad,
-        priceRegularUnit: p.precio_Regular,
-        pricePromotionalUnit: p.precio_Promocional,
-        discountId: p.id_Descuento_Aplicado,
-        discountPercent: 0,
-        subtotalRegular: p.subtotal_Regular,
-        subtotalPromotional: p.subtotal_Promocional,
-        type: "product" as const,
-      }));
-
-      setCartItems(mapped);
+    // Receptor autorizado
+    if (pedidoUI.delivery.receptor_Autorizado) {
+      setAuthorizedReceiver({ value: "other", label: "Otra persona" });
+      setReceiverName(pedidoUI.delivery.nombre_Receptor_Autorizado || "");
+    } else {
+      setAuthorizedReceiver({ value: "same", label: "Mismo cliente" });
+      setReceiverName("");
     }
-  }, [modo, payloadRecompra]);
+
+    const te = tipoEntregaOptions.find(
+      (x) => x.value === del.id_Tipo_de_Entrega
+    );
+    setTipoEntrega(te || null);
+
+    const me = medioEnvioOptions.find(
+      (x) => x.value === del.id_Medio_de_Envio
+    );
+    setMedioEnvio(me || null);
+
+    if (del.fecha_Pactada_Delivery) {
+      setFechaPactada(convertirFechaAFormatoInput(del.fecha_Pactada_Delivery));
+    }
+
+    const hp = horarioPactadoOptions.find(
+      (x) => x.value === del.id_Horario_Pactado
+    );
+    setHorarioPactado(hp || null);
+
+    // Ubigeo
+    (async () => {
+      const departamentos = await fetchDepartamentos();
+      const dpto = departamentos.find(
+        (x: any) => x.value === del.id_Departamento
+      );
+      if (dpto) await handleDepartamentoChange(dpto);
+
+      const provincias = await fetchProvinciasByDepartamento(del.id_Departamento);
+      const prov = provincias.find(
+        (x: any) => x.value === del.id_Provincia
+      );
+      if (prov) await handleProvinciaChange(prov);
+
+      const distritos = await fetchDistritosByProvincia(del.id_Provincia);
+      const dist = distritos.find(
+        (x: any) => x.value === del.id_Distrito
+      );
+      if (dist) setDistritoSel(dist);
+    })();
+
+    // Productos
+    const mapped = pedidoUI.detalle.map((p: any) => ({
+      id: Date.now() + Math.random(),
+      productId: p.id_Producto,
+      productName: p.nombre_Producto,
+      quantity: p.cantidad,
+      priceRegularUnit: p.precio_Regular,
+      pricePromotionalUnit: p.precio_Promocional,
+      discountId: p.id_Descuento_Aplicado,
+      discountPercent: 0,
+      subtotalRegular: p.subtotal_Regular,
+      subtotalPromotional: p.subtotal_Promocional,
+      type: "product" as const,
+    }));
+
+    setCartItems(mapped);
+  }, [pedidoUI]);
 
   const handleBuscarCliente = async () => {
     if (!numeroDocumento.trim()) {
@@ -825,21 +897,47 @@ const CrearPedido: React.FC = () => {
       return `${day}/${month}/${year}`;
     })();
 
-    const body = {
-      id_Lead: leadIdUI,
+    // const body = {
+    //   id_Lead: leadIdUI,
+    //   telefono_Alterno: telefonoAlternativo,
+    //   cantidad_Productos: cartItems.reduce((s, i) => s + i.quantity, 0),
+    //   monto_Total_Regular: totalRegular,
+    //   monto_Total_Promocional: totalPromotional,
+    //   id_Tipo_Comprobante: Number(tipoComprobante?.value),
+    //   id_Usuario_Registro_Pedido: idUsuario,
+    //   id_Acuerdo_de_Pago: Number(acuerdoPago?.value),
+    //   requestInsertCliente: {
+    //     cliente: clienteNombre,
+    //     id_Tipo_Documento: Number(tipoDocumento?.value),
+    //     numero_Documento: numeroDocumento,
+    //     mail: clienteMail,
+    //   },
+    //   requestDelivery: {
+    //     id_Tipo_de_Entrega: Number(tipoEntrega?.value),
+    //     id_Medio_de_Envio: Number(medioEnvio?.value),
+    //     id_Departamento: Number(departamentoSel?.value),
+    //     id_Provincia: Number(provinciaSel?.value),
+    //     id_Distrito: Number(distritoSel?.value),
+    //     direccion_Delivery: direccion,
+    //     referencia,
+    //     indicaciones_De_Entrega: indicacionesEntrega,
+    //     link_Geolocalizacion: linkUbicacion,
+    //     receptor_Autorizado: authorizedReceiver?.value === "other",
+    //     nombre_Receptor_Autorizado: receiverName,
+    //     fecha_Pactada_Delivery: fechaFormateada,
+    //     id_Horario_Pactado: Number(horarioPactado?.value) || 0,
+    //   },
+    //   requestDetallePedido: detallePedido,
+    // };
+
+    const bodyBase = {
       telefono_Alterno: telefonoAlternativo,
       cantidad_Productos: cartItems.reduce((s, i) => s + i.quantity, 0),
       monto_Total_Regular: totalRegular,
       monto_Total_Promocional: totalPromotional,
       id_Tipo_Comprobante: Number(tipoComprobante?.value),
-      id_Usuario_Registro_Pedido: idUsuario,
       id_Acuerdo_de_Pago: Number(acuerdoPago?.value),
-      requestInsertCliente: {
-        cliente: clienteNombre,
-        id_Tipo_Documento: Number(tipoDocumento?.value),
-        numero_Documento: numeroDocumento,
-        mail: clienteMail,
-      },
+
       requestDelivery: {
         id_Tipo_de_Entrega: Number(tipoEntrega?.value),
         id_Medio_de_Envio: Number(medioEnvio?.value),
@@ -855,62 +953,105 @@ const CrearPedido: React.FC = () => {
         fecha_Pactada_Delivery: fechaFormateada,
         id_Horario_Pactado: Number(horarioPactado?.value) || 0,
       },
+
       requestDetallePedido: detallePedido,
+    };
+
+    const bodyInsert = {
+      ...bodyBase,
+      id_Lead: modo === "venta" ? leadIdFromVenta : Number(leadIdUI),
+      id_Usuario_Registro_Pedido: idUsuario,
+      requestInsertCliente: {
+        cliente: clienteNombre,
+        id_Tipo_Documento: Number(tipoDocumento?.value),
+        numero_Documento: numeroDocumento,
+        mail: clienteMail,
+      },
+    };
+
+    const bodyUpdate = {
+      ...bodyBase,
+      id_Pedido: pedidoUI?.id_Pedido,
+      id_Usuario_Edicion: idUsuario,
+      requestSaveCliente: {
+        cliente: clienteNombre,
+        id_Tipo_Documento: Number(tipoDocumento?.value),
+        numero_Documento: numeroDocumento,
+        mail: clienteMail,
+      },
     };
 
     setConfirmConfig({
       open: true,
-      title: "Confirmar creación",
-      message: "¿Desea registrar este pedido?",
+      title: modo === "actualizacion" ? "Confirmar actualización" : "Confirmar creación" ,
+      message: modo === "actualizacion" ? "¿Desea actualizar este pedido?" : "¿Desea registrar este pedido?",
       onConfirm: async () => {
         setConfirmConfig((prev) => ({ ...prev, open: false }));
         setLoading(true);
 
         try {
-          // console.log(body);
-          const res = await PedidoService.insertPedido(body);
+          const bodyView = modo === "actualizacion" ? bodyUpdate : bodyInsert;
+          console.log(bodyView);
+          const res =
+            modo === "actualizacion"
+              ? await PedidoService.updatePedido(bodyUpdate)
+              : await PedidoService.insertPedido(bodyInsert);
 
           if (!res.error) {
-            showToast("Pedido registrado correctamente", "success");
+            showToast(
+              modo === "actualizacion"
+                ? "Pedido actualizado correctamente"
+                : modo === "recompra"
+                  ? "Recompra creada correctamente"
+                  : "Pedido registrado correctamente",
+              "success"
+            );
 
-            setLeadIdUI(null);
-            setTelefonoLeadUI(null);
+            // 🔹 SOLO Venta y Recompra limpian y navegan
+            if (modo !== "actualizacion") {
+              // limpiar formulario
+              setLeadIdUI(null);
+              setTelefonoLeadUI(null);
 
-            setNumeroDocumento("");
-            setClienteNombre("");
-            setClienteMail("");
-            setTipoDocumento(null);
-            setTipoComprobante(null);
-            setAcuerdoPago(null);
+              setNumeroDocumento("");
+              setClienteNombre("");
+              setClienteMail("");
+              setTipoDocumento(null);
+              setTipoComprobante(null);
+              setAcuerdoPago(null);
 
-            setProductos([]);
-            setSelectedProductOption(null);
-            setSelectedProductDetail(null);
-            setQuantity(1);
-            setDiscountLevel(nivelDescuentoOptions[0]);
-            setDiscountDisabled(false);
-            setCartItems([]);
+              setProductos([]);
+              setSelectedProductOption(null);
+              setSelectedProductDetail(null);
+              setQuantity(1);
+              setDiscountLevel(nivelDescuentoOptions[0]);
+              setDiscountDisabled(false);
+              setCartItems([]);
 
-            setTipoEntrega(null);
+              setTipoEntrega(null);
 
-            setDepartamentos([]);
-            setProvincias([]);
-            setDistritos([]);
+              setDepartamentos([]);
+              setProvincias([]);
+              setDistritos([]);
 
-            setDepartamentoSel(null);
-            setProvinciaSel(null);
-            setDistritoSel(null);
+              setDepartamentoSel(null);
+              setProvinciaSel(null);
+              setDistritoSel(null);
 
-            setDireccion("");
-            setReferencia("");
-            setIndicacionesEntrega("");
-            setLinkUbicacion("");
-            setMedioEnvio(null);
-            setFechaPactada("");
-            setHorarioPactado(null);
+              setDireccion("");
+              setReferencia("");
+              setIndicacionesEntrega("");
+              setLinkUbicacion("");
+              setMedioEnvio(null);
+              setFechaPactada("");
+              setHorarioPactado(null);
 
-            setAuthorizedReceiver(null);
-            setReceiverName("");
+              setAuthorizedReceiver(null);
+              setReceiverName("");
+
+              // 👉 ir a seguimiento y limpiar historial
+              navigate("/pedidos/seguimiento", { replace: true });
+            }
 
             setLoading(false);
           } else {
@@ -962,18 +1103,16 @@ const CrearPedido: React.FC = () => {
                       <p className="text-xs font-medium text-emerald-700 uppercase">
                         Lead Seleccionado
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-emerald-900 notranslate">
-                        {modo === "venta" ? leadIdUI : leadIdUIfromRecompra}
-                      </p>
+                      {/* <p>{leadIdUI}</p> */}
+                      <p>{modo === "venta" ? leadIdFromVenta : leadIdUI}</p>
                     </div>
 
                     <div className="flex-1">
                       <p className="text-xs font-medium text-emerald-700 uppercase">
                         Teléfono
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-emerald-900 notranslate">
-                        {modo === "venta" ? telefonoLeadUI : telefonoLeadUIfromRecompra}
-                      </p>
+                      {/* <p>{telefonoLeadUI}</p> */}
+                      <p>{modo === "venta" ? telefonoLeadFromVenta : telefonoLeadUI}</p>
                     </div>
                   </div>
 
@@ -1490,8 +1629,14 @@ const CrearPedido: React.FC = () => {
                         loading ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                     >
-                      {loading ? "Procesando..." : "Crear Pedido"}
-                    </button>
+                        {loading
+                          ? "Procesando..."
+                          : modo === "actualizacion"
+                            ? "Actualizar Pedido"
+                            : modo === "recompra"
+                              ? "Crear Recompra"
+                              : "Crear Pedido"}
+                      </button>
                   </div>
                 )}
               </div>

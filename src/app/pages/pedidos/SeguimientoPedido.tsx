@@ -2,8 +2,8 @@ import { AppLayout } from "@/app/layout/AppLayout";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/sectionTitle";
 import { Toast } from "@/components/ui/toast";
-import { ListChecks, Search, Printer, X } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import { ListChecks, Search, Printer } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import ReactSelect from "react-select";
 import { PedidoService } from "@/services/pedidoService";
 import ActualizarPagoModal from "./components/ActualizarPagoModal";
@@ -12,6 +12,7 @@ import ActualizarFacturacionModal from "./components/ActualizarFacturacionModal"
 import type { EstadoOperacion, EstadoFacturacion } from "@/types/EstadosPedido";
 import PedidoComprobanteMultiplePDF from "./components/PedidoComprobanteMultiplePDF";
 import { pdf } from "@react-pdf/renderer";
+import { useNavigate } from "react-router-dom";
 
 type EstadoPago =
   | "Pendiente"
@@ -46,9 +47,9 @@ type SelectOption = {
 type ToastState =
   | null
   | {
-    msg: string;
-    type: "success" | "error";
-  };
+      msg: string;
+      type: "success" | "error";
+    };
 
 type PagoAgregadoTemp = {
   id: string;
@@ -148,6 +149,16 @@ const estadoFacturacionOptions: SelectOption[] = [
   { value: "Por Anular", label: "Por Anular" },
 ];
 
+const tipoEntregaOptions: SelectOption[] = [
+  { value: "Todos", label: "Todos" },
+  { value: "1", label: "Lima Next Day" },
+  { value: "2", label: "Lima Same Day" },
+  { value: "3", label: "Provincias Pago en Destino" },
+  { value: "4", label: "Provincias Pago completo" },
+  { value: "5", label: "Recojo en Tienda" },
+  { value: "6", label: "Entregas Marketplace" },
+];
+
 const selectStyles = {
   control: (base: any) => ({
     ...base,
@@ -171,29 +182,44 @@ const selectStyles = {
 const inputClasses =
   "w-full rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm shadow-sm focus:border-emerald-500 focus:bg-white focus:outline-none";
 
-const CONTROLES_HABILITADOS = true; // cambia a true cuando quieras habilitar
+const CONTROLES_HABILITADOS = true;
 
 const SeguimientoPedido: React.FC = () => {
+  const navigate = useNavigate();
+
   const userLS = JSON.parse(localStorage.getItem("sn_user") || "{}");
   const esAsesor = userLS?.id_Tipo_Usuario === 8;
+  const esDespachador = userLS?.id_Tipo_Usuario === 7;
+  const esLogístico = userLS?.id_Tipo_Usuario === 6;
 
+  const [pageSize, setPageSize] = useState(5);
+
+  // Paginación backend-driven
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 5;
   const [totalPages, setTotalPages] = useState(1);
 
+  // Total real (si backend lo devuelve; si no, queda null y el texto se mantiene honesto)
+  const [totalPedidos, setTotalPedidos] = useState<number | null>(null);
 
+  // Data actual (solo una página, ya filtrada por backend)
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Filtros
   const [codigoSearch, setCodigoSearch] = useState("");
   const [clienteSearch, setClienteSearch] = useState("");
   const [telefonoSearch, setTelefonoSearch] = useState("");
-  const [estadoPedidoSelected, setEstadoPedidoSelected] = useState<
-    SelectOption[]
-  >([estadoPedidoOptions[0]]);
 
-  const [estadoFacturacionSelected, setEstadoFacturacionSelected] = useState<
-    SelectOption[]
-  >([estadoFacturacionOptions[0]]);
+  const [estadoPedidoSelected, setEstadoPedidoSelected] = useState<SelectOption[]>(
+    [estadoPedidoOptions[0]]
+  );
+  const [estadoFacturacionSelected, setEstadoFacturacionSelected] = useState<SelectOption[]>(
+    [estadoFacturacionOptions[0]]
+  );
+
+  // Por ahora solo visual; coherencia: si eligen distinto a "Todos" se avisa que aún no está soportado
+  const [tipoEntregaSelected, setTipoEntregaSelected] =
+    useState<SelectOption | null>(tipoEntregaOptions[0]);
 
   const [fechaIngresoDesde, setFechaIngresoDesde] = useState("");
   const [fechaIngresoHasta, setFechaIngresoHasta] = useState("");
@@ -204,27 +230,34 @@ const SeguimientoPedido: React.FC = () => {
   const [fechaEntregaDesde, setFechaEntregaDesde] = useState("");
   const [fechaEntregaHasta, setFechaEntregaHasta] = useState("");
 
+  // Selección (acumulativa entre páginas)
   const [selectedCodigos, setSelectedCodigos] = useState<string[]>([]);
+
+  // Toast + modales
   const [toastMsg, setToastMsg] = useState<ToastState>(null);
 
   const [modalActualizarOpen, setModalActualizarOpen] = useState(false);
   const [pedidoEnEdicion, setPedidoEnEdicion] = useState<Pedido | null>(null);
 
   const [modalFacturacionOpen, setModalFacturacionOpen] = useState(false);
-  const [pedidoFacturacionSeleccionado, setPedidoFacturacionSeleccionado] = useState<Pedido | null>(null);
-
-  const [pagosPorPedido, setPagosPorPedido] = useState<
-    Record<string, PedidoPagoPersistente>
-  >({});
-  const [modalPagoOpen, setModalPagoOpen] = useState(false);
-  const [pedidoPagoSeleccionado, setPedidoPagoSeleccionado] =
+  const [pedidoFacturacionSeleccionado, setPedidoFacturacionSeleccionado] =
     useState<Pedido | null>(null);
 
-  const [pagosAgregadosTemp, setPagosAgregadosTemp] = useState<
-    PagoAgregadoTemp[]
-  >([]);
+  const [pagosPorPedido, setPagosPorPedido] = useState<Record<string, PedidoPagoPersistente>>(
+    {}
+  );
+  const [modalPagoOpen, setModalPagoOpen] = useState(false);
+  const [pedidoPagoSeleccionado, setPedidoPagoSeleccionado] = useState<Pedido | null>(
+    null
+  );
 
+  const [pagosAgregadosTemp, setPagosAgregadosTemp] = useState<PagoAgregadoTemp[]>([]);
   const [loadingPdf, setLoadingPdf] = useState(false);
+
+  const showToast = (msg: string, type: "success" | "error" = "error") => {
+    setToastMsg({ msg, type });
+    setTimeout(() => setToastMsg(null), 2500);
+  };
 
   const abrirModalFacturacion = (p: Pedido) => {
     setPedidoFacturacionSeleccionado(p);
@@ -236,213 +269,248 @@ const SeguimientoPedido: React.FC = () => {
     setPedidoFacturacionSeleccionado(null);
   };
 
+  const irACrearPedidoParaActualizar = async (idCodigoPedido: any) => {
+    try {
+      if (!idCodigoPedido) return;
 
-  const showToast = (msg: string, type: "success" | "error" = "error") => {
-    setToastMsg({ msg, type });
-    setTimeout(() => setToastMsg(null), 2500);
+      const res = await PedidoService.getPedidoParaEdicion(idCodigoPedido);
+
+      if (!res || res.error || !res.data) {
+        showToast("No se pudo obtener datos del pedido para actualizar.", "error");
+        return;
+      }
+
+      navigate("/pedidos/crear", {
+        state: {
+          modo: "actualizacion",
+          payloadPedido: res.data,
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      showToast("Error al comunicarse con el servidor.", "error");
+    }
   };
-
-const buildRequestBody = () => {
-  const validar = (d: string, h: string) => (d && h) || (!d && !h);
-
-  if (
-    !validar(fechaIngresoDesde, fechaIngresoHasta) ||
-    !validar(fechaPactadaDesde, fechaPactadaHasta) ||
-    !validar(fechaConfirmacionDesde, fechaConfirmacionHasta) ||
-    !validar(fechaEntregaDesde, fechaEntregaHasta)
-  ) {
-    showToast("Debe seleccionar rangos completos (desde y hasta).", "error");
-    return null;
-  }
-
-  const epSelected = estadoPedidoSelected.map(e => e.value);
-  const efSelected = estadoFacturacionSelected.map(e => e.value);
-
-  const op = epSelected.includes("Todos")
-    ? Object.values(ESTADO_OPERACION_ID_MAP).join(",")
-    : epSelected.map(e => ESTADO_OPERACION_ID_MAP[e as EstadoOperacion]).join(",");
-
-  const fact = efSelected.includes("Todos")
-    ? Object.values(ESTADO_FACTURACION_ID_MAP).join(",")
-    : efSelected.map(e => ESTADO_FACTURACION_ID_MAP[e as EstadoFacturacion]).join(",");
-
-  const convertDate = (v: string) => {
-    if (!v) return "";
-    const [y, m, d] = v.split("-");
-    return `${d}/${m}/${y}`;
-  };
-
-  return {
-    number: page,            // ← PAGINACIÓN REAL
-    size: PAGE_SIZE,         // ← 5 POR PÁGINA
-
-    id_Pedido: 0,
-    id_Asesor_Actual: esAsesor ? userLS.id_Usuario : 0,
-    Cliente: clienteSearch,
-    numero_De_Contacto: telefonoSearch,
-    id_Estado_Operacion_Actual: op,
-    id_Estado_Facturacion_Actual: fact,
-
-    fechaIngresoPedidoInicio: convertDate(fechaIngresoDesde),
-    fechaIngresoPedidoFin: convertDate(fechaIngresoHasta),
-
-    fechaPactadaDeliveryInicio: convertDate(fechaPactadaDesde),
-    fechaPactadaDeliveryFin: convertDate(fechaPactadaHasta),
-
-    fechaConfirmacionInicio: convertDate(fechaConfirmacionDesde),
-    fechaConfirmacionFin: convertDate(fechaConfirmacionHasta),
-
-    fechaEntregaInicio: convertDate(fechaEntregaDesde),
-    fechaEntregaFin: convertDate(fechaEntregaHasta),
-  };
-};
-
-
-  useEffect(() => {
-    fetchPedidos();
-  }, []);
 
   const formatearFecha = (fecha: any) => {
     if (!fecha) return "-";
 
     const date = new Date(fecha);
+    if (Number.isNaN(date.getTime())) return "-";
 
-    const dia = date.getDate().toString().padStart(2, '0');
-    const mes = (date.getMonth() + 1).toString().padStart(2, '0');
+    const dia = date.getDate().toString().padStart(2, "0");
+    const mes = (date.getMonth() + 1).toString().padStart(2, "0");
     const año = date.getFullYear();
 
     let horas = date.getHours();
-    const minutos = date.getMinutes().toString().padStart(2, '0');
-    const segundos = date.getSeconds().toString().padStart(2, '0');
-    const ampm = horas >= 12 ? 'PM' : 'AM';
+    const minutos = date.getMinutes().toString().padStart(2, "0");
+    const segundos = date.getSeconds().toString().padStart(2, "0");
+    const ampm = horas >= 12 ? "PM" : "AM";
     horas = horas % 12 || 12;
 
     return `${dia}/${mes}/${año} ${horas}:${minutos}:${segundos} ${ampm}`;
   };
 
+  const formatBadge = (estado: EstadoOperacion) =>
+    `inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${badgePedidoColors[estado]}`;
+
+  const formatBadgeFacturacion = (estado: EstadoFacturacion) =>
+    `inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${badgeFacturacionColors[estado]}`;
+
+  const convertDate = (v: string) => {
+    if (!v) return "";
+    const [y, m, d] = v.split("-");
+    if (!y || !m || !d) return "";
+    return `${d}/${m}/${y}`;
+  };
+
+  const validarRango = (d: string, h: string) => (d && h) || (!d && !h);
+
+  const parseCodigoToIdPedido = (raw: string) => {
+    const t = raw.trim();
+    if (!t) return 0;
+
+    // Si el usuario pone varios códigos separados por espacio/coma, tomamos el primero.
+    const firstToken = t.split(/[,\s]+/).filter(Boolean)[0] ?? "";
+    const n = Number(firstToken);
+
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
+  const buildRequestBody = (pageParam: number, sizeParam: number) => {
+    // Validación de rangos de fechas (se mantiene)
+    if (
+      !validarRango(fechaIngresoDesde, fechaIngresoHasta) ||
+      !validarRango(fechaPactadaDesde, fechaPactadaHasta) ||
+      !validarRango(fechaConfirmacionDesde, fechaConfirmacionHasta) ||
+      !validarRango(fechaEntregaDesde, fechaEntregaHasta)
+    ) {
+      showToast("Debe seleccionar rangos completos (desde y hasta).", "error");
+      return null;
+    }
+
+    // ============================
+    // ESTADO OPERACIÓN
+    // ============================
+    const epSelected = estadoPedidoSelected.map((e) => e.value);
+
+    const idEstadoOperacion = epSelected.includes("Todos")
+      ? Object.values(ESTADO_OPERACION_ID_MAP).join(",")
+      : epSelected
+        .map((e) => ESTADO_OPERACION_ID_MAP[e as EstadoOperacion])
+        .filter(Boolean)
+        .join(",");
+
+    // ============================
+    // ESTADO FACTURACIÓN
+    // ============================
+    const efSelected = estadoFacturacionSelected.map((e) => e.value);
+
+    const idEstadoFacturacion = efSelected.includes("Todos")
+      ? Object.values(ESTADO_FACTURACION_ID_MAP).join(",")
+      : efSelected
+        .map((e) => ESTADO_FACTURACION_ID_MAP[e as EstadoFacturacion])
+        .filter(Boolean)
+        .join(",");
+
+    // ============================
+    // TIPO DE ENTREGA (NUEVO)
+    // ============================
+    const idTipoEntrega =
+      tipoEntregaSelected?.value && tipoEntregaSelected.value !== "Todos"
+        ? Number(tipoEntregaSelected.value)
+        : 0;
+
+    // ============================
+    // REQUEST FINAL
+    // ============================
+    return {
+      number: pageParam,
+      size: sizeParam,
+
+      id_Pedido: parseCodigoToIdPedido(codigoSearch),
+      id_Asesor_Actual: esAsesor ? userLS.id_Usuario : 0,
+
+      id_Tipo_de_Entrega: idTipoEntrega, // ✅ ya soportado por backend
+
+      cliente: clienteSearch,
+      numero_De_Contacto: telefonoSearch,
+
+      id_Estado_Operacion_Actual: idEstadoOperacion,
+      id_Estado_Facturacion_Actual: idEstadoFacturacion,
+
+      fechaIngresoPedidoInicio: convertDate(fechaIngresoDesde),
+      fechaIngresoPedidoFin: convertDate(fechaIngresoHasta),
+
+      fechaPactadaDeliveryInicio: convertDate(fechaPactadaDesde),
+      fechaPactadaDeliveryFin: convertDate(fechaPactadaHasta),
+
+      fechaConfirmacionInicio: convertDate(fechaConfirmacionDesde),
+      fechaConfirmacionFin: convertDate(fechaConfirmacionHasta),
+
+      fechaEntregaInicio: convertDate(fechaEntregaDesde),
+      fechaEntregaFin: convertDate(fechaEntregaHasta),
+    };
+  };
+
+  const fetchPedidos = async (pageParam: number, sizeParam: number = pageSize) => {
+    const body = buildRequestBody(pageParam, sizeParam);
+    if (!body) return;
+
+    try {
+      setLoading(true);
+
+      const res = await PedidoService.getSeguimientoPedido(body);
+
+      const serverPage = res?.data?.page ?? pageParam;
+      const serverTotalPages = res?.data?.totalPages ?? 1;
+
+      // Si en algún momento backend expone totalRegisters, lo tomamos (sin romper si no existe)
+      const serverTotalRegisters =
+        typeof res?.data?.totalRegisters === "number" ? res.data.totalRegisters : null;
+
+      setPage(serverPage);
+      setTotalPages(serverTotalPages);
+      setTotalPedidos(serverTotalRegisters);
+
+      const lista = res?.data?.seguimientoPedido ?? [];
+
+      const mapped: Pedido[] = lista.map((item: any) => ({
+        id_Pedido: item.id_Pedido,
+        codigo: item.codigo_Pedido ?? item.id_Pedido?.toString() ?? "",
+        cliente: item.cliente || "",
+        telefono: item.numero_De_Contacto || "",
+        total: Number(item.monto_Total_Promocional || 0),
+        asesor: item.asesor || "",
+        estadoPedido: item.estatus_Operacion || "Ingresada",
+        estadoPago: item.estatus_Pago || "Pendiente",
+        estadoFacturacion: item.estatus_Facturacion || "Pendiente",
+        fechaIngreso: item.fecha_Registro_Pedido || "",
+        fechaConfirmacion: item.fechaConfirmacion || "",
+        fechaPactada: item.fecha_Pactada_Delivery || "",
+        fechaEntrega: item.fechaEntrega || "",
+        medio: "",
+        sede: "",
+      }));
+
+      setPedidos(mapped);
+    } catch (err) {
+      console.error(err);
+      showToast("Error consultando pedidos", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carga inicial (una sola vez)
   useEffect(() => {
-  fetchPedidos();
-}, [page]);
-
-const fetchPedidos = async () => {
-  const body = buildRequestBody();
-  if (!body) return;
-
-  try {
-    setLoading(true);
-
-    const res = await PedidoService.getSeguimientoPedido(body);
-
-    setTotalPages(res?.data?.totalPages ?? 1);
-
-    const lista = res?.data?.seguimientoPedido ?? [];
-
-    const mapped: Pedido[] = lista.map((item: any) => ({
-      id_Pedido: item.id_Pedido,
-      codigo: item.codigo_Pedido ?? item.id_Pedido?.toString() ?? "",
-      cliente: item.cliente || "",
-      telefono: item.numero_De_Contacto || "",
-      total: Number(item.monto_Total_Promocional || 0),
-      asesor: item.asesor || "",
-      estadoPedido: item.estatus_Operacion || "Ingresada",
-      estadoPago: item.estatus_Pago || "Pendiente",
-      estadoFacturacion: item.estatus_Facturacion || "Pendiente",
-      fechaIngreso: item.fecha_Registro_Pedido || "",
-      fechaConfirmacion: item.fechaConfirmacion || "",
-      fechaPactada: item.fecha_Pactada_Delivery || "",
-      fechaEntrega: item.fechaEntrega || "",
-      medio: "",
-      sede: "",
-    }));
-
-    setPedidos(mapped);
-  } catch (err) {
-    console.error(err);
-    showToast("Error consultando pedidos", "error");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const filtered = useMemo(() => {
-    let data = [...pedidos];
-
-    if (codigoSearch.trim()) {
-      const codes = codigoSearch
-        .split(" ")
-        .map((c) => c.trim().toLowerCase())
-        .filter(Boolean);
-      data = data.filter((p) =>
-        codes.some((code) => p.codigo.toLowerCase().includes(code))
-      );
-    }
-
-    if (clienteSearch.trim()) {
-      const clientes = clienteSearch
-        .split(",")
-        .map((c) => c.trim().toLowerCase())
-        .filter(Boolean);
-      data = data.filter((p) =>
-        clientes.some((cli) => p.cliente.toLowerCase().includes(cli))
-      );
-    }
-
-    if (telefonoSearch.trim()) {
-      const tel = telefonoSearch.trim().toLowerCase();
-      data = data.filter((p) =>
-        p.telefono.toLowerCase().includes(tel)
-      );
-    }
-
-    const ep = estadoPedidoSelected.map((e) => e.value);
-    if (!ep.includes("Todos")) {
-      data = data.filter((p) => ep.includes(p.estadoPedido));
-    }
-
-    const ef = estadoFacturacionSelected.map((e) => e.value);
-    if (!ef.includes("Todos")) {
-      data = data.filter((p) => ef.includes(p.estadoFacturacion));
-    }
-
-    return data;
-  }, [
-    pedidos,
-    codigoSearch,
-    clienteSearch,
-    telefonoSearch,
-    estadoPedidoSelected,
-    estadoFacturacionSelected,
-  ]);
-
-  useEffect(() => {
-    fetchPedidos();
+    fetchPedidos(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleBuscar = () => {
+    // Buscar confirma filtros → siempre página 1, como SeguimientoLead
+    setSelectedCodigos([]); // recomendado: si cambias universo, resetea selección
+    fetchPedidos(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    fetchPedidos(newPage);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    if (newSize === pageSize) return;
+
+    setSelectedCodigos([]); // coherencia: cambia el universo
+    setPage(1);
+    setPageSize(newSize);
+
+    // cambiar size = cambiar universo → volver a página 1
+    fetchPedidos(1, newSize);
+  };
 
   const toggleSeleccion = (codigo: string) => {
     setSelectedCodigos((prev) =>
-      prev.includes(codigo)
-        ? prev.filter((c) => c !== codigo)
-        : [...prev, codigo]
+      prev.includes(codigo) ? prev.filter((c) => c !== codigo) : [...prev, codigo]
     );
   };
 
   const allSelected =
-    filtered.length > 0 &&
-    filtered.every((p) => selectedCodigos.includes(p.codigo));
+    pedidos.length > 0 && pedidos.every((p) => selectedCodigos.includes(p.codigo));
 
   const toggleAll = (checked: boolean) => {
-    const codigosPagina = filtered.map((p) => p.codigo);
+    const codigosPagina = pedidos.map((p) => p.codigo);
 
     setSelectedCodigos((prev) => {
       if (checked) {
-        // Agregar los de esta página sin perder los anteriores
         return Array.from(new Set([...prev, ...codigosPagina]));
-      } else {
-        // Quitar solo los códigos de esta página, NO todos
-        return prev.filter((c) => !codigosPagina.includes(c));
       }
+      return prev.filter((c) => !codigosPagina.includes(c));
     });
   };
+
+  const hasSelection = selectedCodigos.length > 0;
 
   const handleImprimirOrdenes = async () => {
     if (!hasSelection) return;
@@ -450,8 +518,7 @@ const fetchPedidos = async () => {
     try {
       setLoadingPdf(true);
 
-      // 1. Traer la data completa de cada pedido seleccionado
-      const pedidosData = [];
+      const pedidosData: any[] = [];
 
       for (const codigo of selectedCodigos) {
         const res = await PedidoService.getDetallePedido(Number(codigo));
@@ -463,12 +530,10 @@ const fetchPedidos = async () => {
         return;
       }
 
-      // 2. Generar el PDF múltiple
       const blob = await pdf(
         <PedidoComprobanteMultiplePDF pedidos={pedidosData} />
       ).toBlob();
 
-      // 3. Forzar descarga
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -493,34 +558,6 @@ const fetchPedidos = async () => {
     setPedidoEnEdicion(null);
   };
 
-  const handleGuardarEstados = ({
-    estadoOperacionNuevo,
-    estadoFacturacionNuevo,
-  }: EstadosActualizados) => {
-    if (!pedidoEnEdicion) return;
-
-    const nuevosPedidos = pedidos.map((p) =>
-      p.codigo === pedidoEnEdicion.codigo
-        ? {
-          ...p,
-          estadoPedido: estadoOperacionNuevo,
-          estadoFacturacion: estadoFacturacionNuevo,
-        }
-        : p
-    );
-
-    setPedidos(nuevosPedidos);
-    setModalActualizarOpen(false);
-    setPedidoEnEdicion(null);
-    showToast("Estados actualizados en el pedido.", "success");
-  };
-
-  const formatBadge = (estado: EstadoOperacion) =>
-    `inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${badgePedidoColors[estado]}`;
-
-  const formatBadgeFacturacion = (estado: EstadoFacturacion) =>
-    `inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${badgeFacturacionColors[estado]}`;
-
   const abrirModalPago = (p: Pedido) => {
     setPedidoPagoSeleccionado(p);
     setPagosAgregadosTemp([]);
@@ -532,17 +569,37 @@ const fetchPedidos = async () => {
     setPedidoPagoSeleccionado(null);
   };
 
-  const hasSelection = selectedCodigos.length > 0;
+  const handleGuardarEstados = ({
+    estadoOperacionNuevo,
+    estadoFacturacionNuevo,
+  }: EstadosActualizados) => {
+    if (!pedidoEnEdicion) return;
+
+    const nuevosPedidos = pedidos.map((p) =>
+      p.codigo === pedidoEnEdicion.codigo
+        ? {
+            ...p,
+            estadoPedido: estadoOperacionNuevo,
+            estadoFacturacion: estadoFacturacionNuevo,
+          }
+        : p
+    );
+
+    setPedidos(nuevosPedidos);
+    setModalActualizarOpen(false);
+    setPedidoEnEdicion(null);
+    showToast("Estados actualizados en el pedido.", "success");
+  };
 
   const handleFacturacionUpdated = async () => {
-    await fetchPedidos();
+    await fetchPedidos(page);
     cerrarModalFacturacion();
     showToast("Facturación actualizada.", "success");
   };
 
   const handleEstadosOperacionUpdated = async () => {
-    await fetchPedidos();           // refresca tabla REAL desde API
-    cerrarModalActualizar();        // cierra modal estados
+    await fetchPedidos(page);
+    cerrarModalActualizar();
     showToast("Estado del pedido actualizado.", "success");
   };
 
@@ -553,10 +610,11 @@ const fetchPedidos = async () => {
           Gestionar Pedido <span className="mx-1">›</span>
           <span className="text-gray-800">Seguimiento de pedidos</span>
         </div>
+
         <Card>
           <SectionTitle icon={ListChecks}>Lista de Pedidos</SectionTitle>
-          <div className="flex flex-col gap-4 bg-white px-6 py-5">
 
+          <div className="flex flex-col gap-4 bg-white px-6 py-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
@@ -569,11 +627,16 @@ const fetchPedidos = async () => {
                 disabled={!hasSelection || loadingPdf}
               >
                 <Printer className="w-4 h-4" />
-                {loadingPdf
-                  ? "Generando PDF..."
-                  : <span className="notranslate">Imprimir Órdenes: {selectedCodigos.length}</span>}
+                {loadingPdf ? (
+                  "Generando PDF..."
+                ) : (
+                  <span className="notranslate">
+                    Imprimir Órdenes: {selectedCodigos.length}
+                  </span>
+                )}
               </button>
             </div>
+
             <div className="grid gap-3 md:grid-cols-[1.2fr_1.2fr_1.2fr_auto]">
               <input
                 type="text"
@@ -586,7 +649,7 @@ const fetchPedidos = async () => {
                 type="text"
                 value={clienteSearch}
                 onChange={(e) => setClienteSearch(e.target.value)}
-                placeholder="Buscar por cliente (separar por comas)"
+                placeholder="Buscar por cliente"
                 className={inputClasses}
               />
               <input
@@ -599,7 +662,7 @@ const fetchPedidos = async () => {
 
               <button
                 type="button"
-                onClick={fetchPedidos}
+                onClick={handleBuscar}
                 disabled={loading}
                 className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
               >
@@ -636,6 +699,7 @@ const fetchPedidos = async () => {
                   placeholder="Seleccione estado(s)"
                 />
               </div>
+
               <div className="space-y-1">
                 <label className="text-xs font-medium text-slate-600">
                   Estado de Facturación
@@ -654,6 +718,24 @@ const fetchPedidos = async () => {
                   placeholder="Seleccione estado(s)"
                 />
               </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">
+                  Tipo de Entrega
+                </label>
+                <ReactSelect
+                  isMulti={false}
+                  classNamePrefix="rs notranslate"
+                  options={tipoEntregaOptions}
+                  value={tipoEntregaSelected}
+                  onChange={(opt) => setTipoEntregaSelected(opt)}
+                  styles={selectStyles}
+                  placeholder="Seleccione tipo"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-4">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-slate-600">
                   Fecha de Ingreso
@@ -662,24 +744,18 @@ const fetchPedidos = async () => {
                   <input
                     type="date"
                     value={fechaIngresoDesde}
-                    onChange={(e) =>
-                      setFechaIngresoDesde(e.target.value)
-                    }
+                    onChange={(e) => setFechaIngresoDesde(e.target.value)}
                     className={inputClasses}
                   />
                   <input
                     type="date"
                     value={fechaIngresoHasta}
-                    onChange={(e) =>
-                      setFechaIngresoHasta(e.target.value)
-                    }
+                    onChange={(e) => setFechaIngresoHasta(e.target.value)}
                     className={inputClasses}
                   />
                 </div>
               </div>
-            </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-slate-600">
                   Fecha Pactada
@@ -688,17 +764,13 @@ const fetchPedidos = async () => {
                   <input
                     type="date"
                     value={fechaPactadaDesde}
-                    onChange={(e) =>
-                      setFechaPactadaDesde(e.target.value)
-                    }
+                    onChange={(e) => setFechaPactadaDesde(e.target.value)}
                     className={inputClasses}
                   />
                   <input
                     type="date"
                     value={fechaPactadaHasta}
-                    onChange={(e) =>
-                      setFechaPactadaHasta(e.target.value)
-                    }
+                    onChange={(e) => setFechaPactadaHasta(e.target.value)}
                     className={inputClasses}
                   />
                 </div>
@@ -712,17 +784,13 @@ const fetchPedidos = async () => {
                   <input
                     type="date"
                     value={fechaConfirmacionDesde}
-                    onChange={(e) =>
-                      setFechaConfirmacionDesde(e.target.value)
-                    }
+                    onChange={(e) => setFechaConfirmacionDesde(e.target.value)}
                     className={inputClasses}
                   />
                   <input
                     type="date"
                     value={fechaConfirmacionHasta}
-                    onChange={(e) =>
-                      setFechaConfirmacionHasta(e.target.value)
-                    }
+                    onChange={(e) => setFechaConfirmacionHasta(e.target.value)}
                     className={inputClasses}
                   />
                 </div>
@@ -736,17 +804,13 @@ const fetchPedidos = async () => {
                   <input
                     type="date"
                     value={fechaEntregaDesde}
-                    onChange={(e) =>
-                      setFechaEntregaDesde(e.target.value)
-                    }
+                    onChange={(e) => setFechaEntregaDesde(e.target.value)}
                     className={inputClasses}
                   />
                   <input
                     type="date"
                     value={fechaEntregaHasta}
-                    onChange={(e) =>
-                      setFechaEntregaHasta(e.target.value)
-                    }
+                    onChange={(e) => setFechaEntregaHasta(e.target.value)}
                     className={inputClasses}
                   />
                 </div>
@@ -754,22 +818,35 @@ const fetchPedidos = async () => {
             </div>
           </div>
 
-
           <div className="flex flex-col gap-4 bg-white px-6 py-5">
-
             <div className="w-full overflow-x-auto">
-              <div className="min-w-[1300px] border border-slate-200 rounded-2xl">
-                <div className="max-h-[65vh] overflow-y-auto overflow-auto">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <span>Mostrar</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                    className="rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:outline-none"
+                    disabled={loading}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={30}>30</option>
+                  </select>
+                  <span>filas</span>
+                </div>
+              </div>
+              <div className="min-w-[1400px] border border-slate-200 rounded-2xl">
+                <div className="max-h-[65vh] overflow-y-auto">
                   <table className="w-full text-[11px] md:text-sm">
-                    <thead className="bg-slate-50 text-slate-600 sticky top-0 z-10">
+                    <thead className="bg-slate-50 text-slate-600 sticky top-0">
                       <tr>
                         <th className="py-3 px-2">
                           <input
                             type="checkbox"
                             checked={allSelected}
-                            onChange={(e) =>
-                              toggleAll(e.target.checked)
-                            }
+                            onChange={(e) => toggleAll(e.target.checked)}
                           />
                         </th>
                         <th className="py-3 px-2">Código</th>
@@ -785,66 +862,70 @@ const fetchPedidos = async () => {
                         {!esAsesor && <th className="py-3 px-2">Pago</th>}
                         {!esAsesor && <th className="py-3 px-2">Facturación</th>}
                         <th className="py-3 px-2">Gestión</th>
+                        {!esAsesor && !esDespachador && !esLogístico && (
+                          <th className="py-3 px-2">Acción</th>
+                        )}
                       </tr>
                     </thead>
 
                     <tbody>
-                      {filtered.map((p) => (
-                        <tr
-                          key={p.codigo}
-                          className="border-b border-slate-100 text-sm"
-                        >
+                      {pedidos.map((p) => (
+                        <tr key={p.codigo} className="border-b border-slate-100 text-sm">
                           <td className="py-3 px-2">
                             <input
                               type="checkbox"
-                              checked={selectedCodigos.includes(
-                                p.codigo
-                              )}
-                              onChange={() =>
-                                toggleSeleccion(p.codigo)
-                              }
+                              checked={selectedCodigos.includes(p.codigo)}
+                              onChange={() => toggleSeleccion(p.codigo)}
                             />
                           </td>
+
                           <td className="py-3 px-2">
                             <span className="font-semibold text-slate-800 notranslate">
                               {p.codigo}
                             </span>
                           </td>
+
                           <td className="py-3 px-2">
                             <div className="flex flex-col">
-                              <span className="text-slate-800">
-                                {p.cliente}
-                              </span>
+                              <span className="text-slate-800">{p.cliente}</span>
                             </div>
                           </td>
+
                           <td className="py-3 px-2 whitespace-nowrap text-slate-800 notranslate">
                             S/ {p.total.toFixed(2)}
                           </td>
-                          <td className="py-3 px-2 text-slate-700">
-                            {p.asesor}
-                          </td>
+
+                          <td className="py-3 px-2 text-slate-700">{p.asesor}</td>
+
                           <td className="py-3 px-2">
                             <span className={`${formatBadge(p.estadoPedido)} notranslate`}>
                               {p.estadoPedido}
                             </span>
                           </td>
+
                           <td className="py-3 px-2">
-                            <span className={`${formatBadgeFacturacion(p.estadoFacturacion)} notranslate`}>
+                            <span
+                              className={`${formatBadgeFacturacion(
+                                p.estadoFacturacion
+                              )} notranslate`}
+                            >
                               {p.estadoFacturacion}
                             </span>
                           </td>
+
                           <td className="py-3 px-2 text-slate-700 text-center notranslate">
-                            {formatearFecha(p.fechaIngreso) || "-"}
+                            {formatearFecha(p.fechaIngreso)}
                           </td>
                           <td className="py-3 px-2 text-slate-700 text-center notranslate">
-                            {formatearFecha(p.fechaConfirmacion) || "-"}
+                            {formatearFecha(p.fechaConfirmacion)}
                           </td>
                           <td className="py-3 px-2 text-slate-700 text-center notranslate">
-                            {formatearFecha(p.fechaPactada) || "-"}
+                            {formatearFecha(p.fechaPactada)}
                           </td>
                           <td className="py-3 px-2 text-slate-700 text-center notranslate">
-                            {formatearFecha(p.fechaEntrega) || "-"}
+                            {formatearFecha(p.fechaEntrega)}
                           </td>
+
                           {!esAsesor && (
                             <td className="py-3 px-2">
                               <button
@@ -861,12 +942,15 @@ const fetchPedidos = async () => {
                               </button>
                             </td>
                           )}
+
                           {!esAsesor && (
                             <td className="py-3 px-2">
                               <button
                                 type="button"
                                 disabled={!CONTROLES_HABILITADOS}
-                                onClick={() => CONTROLES_HABILITADOS && abrirModalFacturacion(p)}
+                                onClick={() =>
+                                  CONTROLES_HABILITADOS && abrirModalFacturacion(p)
+                                }
                                 className={
                                   CONTROLES_HABILITADOS
                                     ? "text-xs rounded-full bg-amber-50 px-3 py-1 text-amber-600 hover:bg-amber-100 border border-amber-100 notranslate"
@@ -877,28 +961,35 @@ const fetchPedidos = async () => {
                               </button>
                             </td>
                           )}
+
                           <td className="py-3 px-2">
                             <button
                               type="button"
-                              onClick={() =>
-                                abrirModalActualizarEstados(p)
-                              }
+                              onClick={() => abrirModalActualizarEstados(p)}
                               className="text-xs rounded-full bg-emerald-50 px-3 py-1 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 notranslate"
                             >
                               Actualizar Estados
                             </button>
                           </td>
+
+                          {!esAsesor && !esDespachador && !esLogístico && (
+                            <td className="py-3 px-2">
+                              <button
+                                type="button"
+                                onClick={() => irACrearPedidoParaActualizar(p.codigo)}
+                                className="text-xs rounded-full bg-[#FFE5E5] px-3 py-1 text-red-600 hover:bg-red-100 border border-red-100 notranslate"
+                              >
+                                Actualizar Pedido
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
 
-                      {filtered.length === 0 && (
+                      {!loading && pedidos.length === 0 && (
                         <tr>
-                          <td
-                            colSpan={13}
-                            className="py-6 text-center text-slate-500"
-                          >
-                            No se encontraron pedidos con los filtros
-                            actuales.
+                          <td colSpan={13} className="py-6 text-center text-slate-500">
+                            No se encontraron pedidos con los filtros actuales.
                           </td>
                         </tr>
                       )}
@@ -906,19 +997,25 @@ const fetchPedidos = async () => {
                   </table>
                 </div>
               </div>
-              <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-gray-500">
 
+              <div className="min-w-[1400px] flex items-center justify-between border-t px-4 py-2 text-xs text-gray-500">
                 <div>
                   Mostrando{" "}
-                  <span className="font-medium">{pedidos.length}</span> de{" "}
-                  <span className="font-medium">{PAGE_SIZE}</span> pedidos
+                  <span className="font-medium">{pedidos.length}</span>
+                  {typeof totalPedidos === "number" ? (
+                    <>
+                      {" "}
+                      de <span className="font-medium">{totalPedidos}</span>
+                    </>
+                  ) : null}{" "}
+                  pedidos
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-end gap-2">
                   <button
                     className="px-2 py-1 rounded border text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white"
-                    onClick={() => setPage((prev) => prev - 1)}
-                    disabled={page === 1}
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={page === 1 || loading}
                   >
                     Anterior
                   </button>
@@ -930,15 +1027,14 @@ const fetchPedidos = async () => {
 
                   <button
                     className="px-2 py-1 rounded border text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white"
-                    onClick={() => setPage((prev) => prev + 1)}
-                    disabled={page === totalPages}
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={page === totalPages || loading}
                   >
                     Siguiente
                   </button>
                 </div>
 
               </div>
-
             </div>
           </div>
         </Card>
